@@ -237,6 +237,10 @@
           ansible.builtin.set_fact:
             _cilium_bgp_neighbors: "{{ lookup('community.general.merge_variables', '^cilium_bgp_neighbors__.+$', initial_value=cilium_bgp_neighbors, groups=cilium_bgp_neighbors_groups) }}"  # yamllint disable-line rule:line-length
 
+        - name: Debug BGP API version
+          ansible.builtin.debug:
+            msg: "cilium_bgp_api_version is set to: '{{ cilium_bgp_api_version | default('NOT SET') }}'"
+
         - name: Copy BGP manifests (v2 API) to first master
           ansible.builtin.template:
             src: cilium-bgp-v2.crs.j2
@@ -244,7 +248,7 @@
             owner: root
             group: root
             mode: "0755"
-          when: cilium_bgp_api_version == 'v2'
+          when: cilium_bgp_api_version | default('v2') | trim == 'v2'
 
         - name: Copy BGP manifests (v2alpha1 API - legacy) to first master
           ansible.builtin.template:
@@ -253,7 +257,7 @@
             owner: root
             group: root
             mode: "0755"
-          when: cilium_bgp_api_version == 'v2alpha1'
+          when: cilium_bgp_api_version | default('v2') | trim == 'v2alpha1'
 
         - name: Apply BGP manifests
           ansible.builtin.command:
