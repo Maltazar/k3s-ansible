@@ -32,6 +32,12 @@ spec:
           value: "{{ 'true' if kube_vip_bgp | default(false) | bool else 'false' }}"
         - name: port
           value: "6443"
+{% if kube_proxy_replacement %}
+        - name: KUBERNETES_SERVICE_HOST
+          value: "127.0.0.1"
+        - name: KUBERNETES_SERVICE_PORT
+          value: "6443"
+{% endif %}
 {% if kube_vip_iface %}
         - name: vip_interface
           value: {{ kube_vip_iface }}

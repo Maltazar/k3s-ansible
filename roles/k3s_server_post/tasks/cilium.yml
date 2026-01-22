@@ -3,6 +3,17 @@
   when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
   run_once: true
   block:
+
+    - name: Deploy Gateway API CRDs
+      when: kube_proxy_replacement
+      ansible.builtin.command: >-
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
+    
+    - name: Deploy Gateway API CRDs experimental
+      when: kube_proxy_replacement
+      ansible.builtin.command: >-
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/experimental-install.yaml
+
     - name: Create tmp directory on first master
       ansible.builtin.file:
         path: /tmp/k3s
@@ -183,6 +194,7 @@
         {% if kube_proxy_replacement is not false %}
         --helm-set bpf.loadBalancer.algorithm={{ bpf_lb_algorithm }}
         --helm-set bpf.loadBalancer.mode={{ bpf_lb_mode }}
+        --helm-set gatewayAPI.enabled=true
         {% endif %}
       environment:
         KUBECONFIG: "{{ ansible_user_dir }}/.kube/config"
@@ -225,13 +237,23 @@
           ansible.builtin.set_fact:
             _cilium_bgp_neighbors: "{{ lookup('community.general.merge_variables', '^cilium_bgp_neighbors__.+$', initial_value=cilium_bgp_neighbors, groups=cilium_bgp_neighbors_groups) }}"  # yamllint disable-line rule:line-length
 
-        - name: Copy BGP manifests to first master
+        - name: Copy BGP manifests (v2 API) to first master
+          ansible.builtin.template:
+            src: cilium-bgp-v2.crs.j2
+            dest: /tmp/k3s/cilium-bgp.yaml
+            owner: root
+            group: root
+            mode: "0755"
+          when: cilium_bgp_api_version == 'v2'
+
+        - name: Copy BGP manifests (v2alpha1 API - legacy) to first master
           ansible.builtin.template:
             src: cilium.crs.j2
             dest: /tmp/k3s/cilium-bgp.yaml
             owner: root
             group: root
             mode: "0755"
+          when: cilium_bgp_api_version == 'v2alpha1'
 
         - name: Apply BGP manifests
           ansible.builtin.command:
@@ -246,7 +268,19 @@
             msg: "{{ apply_cr.stderr }}"
           when: "'is invalid' in apply_cr.stderr"
 
-        - name: Test for BGP config resources
+        - name: Test for BGP config resources (v2 API)
+          ansible.builtin.command: "{{ item }}"
+          loop:
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumBGPClusterConfig.cilium.io"
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumBGPPeerConfig.cilium.io"
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumBGPAdvertisement.cilium.io"
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumLoadBalancerIPPool.cilium.io"
+          changed_when: false
+          loop_control:
+            label: "{{ item }}"
+          when: cilium_bgp_api_version == 'v2'
+
+        - name: Test for BGP config resources (v2alpha1 API - legacy)
           ansible.builtin.command: "{{ item }}"
           loop:
             - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumBGPPeeringPolicy.cilium.io"
@@ -254,3 +288,4 @@
           changed_when: false
           loop_control:
             label: "{{ item }}"
+          when: cilium_bgp_api_version == 'v2alpha1'

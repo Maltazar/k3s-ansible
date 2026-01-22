@@ -1,0 +1,97 @@
+---
+# Cilium BGP Control Plane - v2 API (Cilium 1.18.6+)
+# This template creates separate CiliumBGPClusterConfig, CiliumBGPPeerConfig, and CiliumBGPAdvertisement resources
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: 01-bgp-cluster-config
+spec:
+  bgpInstances:
+    - name: bgp-instance
+      localASN: {{ cilium_bgp_my_asn }}
+      peers:
+{% if _cilium_bgp_neighbors | length > 0 %}
+{% for item in _cilium_bgp_neighbors %}
+        - name: peer-{{ loop.index }}
+          peerAddress: '{{ item.peer_address }}'
+          peerASN: {{ item.peer_asn }}
+          peerConfigRef:
+            name: bgp-peer-config
+{% endfor %}
+{% else %}
+        - name: peer-1
+          peerAddress: '{{ cilium_bgp_peer_address }}'
+          peerASN: {{ cilium_bgp_peer_asn }}
+          peerConfigRef:
+            name: bgp-peer-config
+{% endif %}
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: bgp-peer-config
+spec:
+  timers:
+    connectRetryTimeSeconds: 120
+    keepAliveTimeSeconds: 30
+    holdTimeSeconds: 90
+  families:
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise-bgp: "true"
+    - afi: ipv6
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise-bgp: "true"
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 120
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: 01-bgp-pod-cidr
+  labels:
+    advertise-bgp: "true"
+spec:
+  advertisements:
+    - advertisementType: "PodCIDR"
+{% if cilium_exportPodCIDR | default('true') | lower == 'true' %}
+      attributes:
+        communities:
+          standard:
+            - "{{ cilium_bgp_my_asn }}:100"
+{% endif %}
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: 01-bgp-loadbalancer-pool
+  labels:
+    advertise-bgp: "true"
+spec:
+  advertisements:
+    - advertisementType: "Service"
+      service:
+        addresses:
+          - LoadBalancerIP
+      attributes:
+        communities:
+          standard:
+            - "{{ cilium_bgp_my_asn }}:200"
+---
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "01-lb-pool"
+spec:
+  blocks:
+{% if "/" in cilium_bgp_lb_cidr %}
+  - cidr: {{ cilium_bgp_lb_cidr }}
+{% else %}
+  - start: {{ cilium_bgp_lb_cidr.split('-')[0] }}
+    stop: {{ cilium_bgp_lb_cidr.split('-')[1] }}
+{% endif %}
