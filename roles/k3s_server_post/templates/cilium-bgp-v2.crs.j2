@@ -6,6 +6,7 @@ kind: CiliumBGPClusterConfig
 metadata:
   name: 01-bgp-cluster-config
 spec:
+  nodeSelector: {}
   bgpInstances:
     - name: bgp-instance
       localASN: {{ cilium_bgp_my_asn }}
@@ -78,6 +79,12 @@ spec:
       service:
         addresses:
           - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - key: somekey
+            operator: NotIn
+            values:
+              - never-used-value
       attributes:
         communities:
           standard:
