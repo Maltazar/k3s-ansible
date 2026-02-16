@@ -68,6 +68,8 @@ k3s_master_taint: "{{ true if groups['node'] | default([]) | length >= 1 else fa
 extra_args: >-
   {{ '--flannel-iface=' + flannel_iface if calico_iface is not defined and cilium_iface is not defined else '' }}
   --node-ip={{ k3s_node_ip }}
+  --kubelet-arg=image-gc-high-threshold=85
+  --kubelet-arg=image-gc-low-threshold=75
 
 # change these to your liking, the only required are: --disable servicelb, --tls-san {{ apiserver_endpoint }}
 # the contents of the if block is also required if using calico or cilium
