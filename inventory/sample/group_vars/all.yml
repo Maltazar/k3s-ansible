@@ -18,7 +18,7 @@ calico_tag: v3.31.0 # calico version tag
 # uncomment cilium_iface to use cilium cni instead of flannel or calico
 # ensure v4.19.57, v5.1.16, v5.2.0 or more recent kernel
 cilium_iface: "{{ ansible_facts.default_ipv4.interface | default( 'eth0' ) }}"
-cilium_mode: native # native when nodes on same subnet or using bgp, else set routed
+cilium_mode: native # native when nodes on same subnet or using bgp, else set tunnel
 cilium_tag: v1.18.6 # cilium version tag
 cilium_hubble: true # enable hubble observability relay and ui
 
@@ -44,10 +44,10 @@ kube_vip_arp: true
 kube_vip_bgp: false
 
 # bgp parameters for kube-vip
-kube_vip_bgp_routerid: "127.0.0.1"  # Defines the router ID for the BGP server
-kube_vip_bgp_as: "64513"  # Defines the AS for the BGP server
-kube_vip_bgp_peeraddress: "192.168.30.1"  # Defines the address for the BGP peer
-kube_vip_bgp_peeras: "64512"  # Defines the AS for the BGP peer
+kube_vip_bgp_routerid: "127.0.0.1" # Defines the router ID for the BGP server
+kube_vip_bgp_as: "64513" # Defines the AS for the BGP server
+kube_vip_bgp_peeraddress: "192.168.30.1" # Defines the address for the BGP peer
+kube_vip_bgp_peeras: "64512" # Defines the AS for the BGP peer
 
 # apiserver_endpoint is virtual ip-address which will be configured on each master
 apiserver_endpoint: 192.168.30.222
