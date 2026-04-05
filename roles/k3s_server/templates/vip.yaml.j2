@@ -42,7 +42,12 @@ spec:
         - name: vip_interface
           value: {{ kube_vip_iface }}
 {% endif %}
+{% set _kv_tag = kube_vip_tag_version | regex_replace('^v', '') %}
+{% if _kv_tag is version_compare('0.9.0', '<') %}
         - name: vip_cidr
+          value: "{{ apiserver_endpoint | ansible.utils.ipsubnet | ansible.utils.ipaddr('prefix') }}"
+{% endif %}
+        - name: vip_subnet
           value: "{{ apiserver_endpoint | ansible.utils.ipsubnet | ansible.utils.ipaddr('prefix') }}"
         - name: cp_enable
           value: "true"
@@ -68,7 +73,7 @@ spec:
           value: "{{ kube_vip_bgp_routerid }}"
 {% endif %}
 {% if _kube_vip_bgp_peers | length > 0 %}
-        - name: bgppeers
+        - name: bgp_peers
           value: "{{ _kube_vip_bgp_peers | map(attribute='peer_address') | zip(_kube_vip_bgp_peers| map(attribute='peer_asn')) | map('join', ',') | join(':') }}"  # yamllint disable-line rule:line-length
 {% else %}
 {% if kube_vip_bgp_as is defined %}
@@ -85,7 +90,7 @@ spec:
 {% endif %}
 {% endif %}
 {% endif %}
-        image: ghcr.io/kube-vip/kube-vip:{{ kube_vip_tag_version }}
+        image: {{ kube_vip_image_repository | default('ghcr.io/kube-vip/kube-vip') }}:{{ kube_vip_tag_version }}
         imagePullPolicy: Always
         name: kube-vip
         resources: {}

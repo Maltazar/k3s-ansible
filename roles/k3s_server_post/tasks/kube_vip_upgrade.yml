@@ -1,0 +1,86 @@
+---
+# Reconcile kube-vip DaemonSet when live image differs from inventory (upgrade, downgrade, or re-pin).
+# Idempotent: skips if kube-vip-ds is missing (fresh bootstrap handled by k3s_server) or image already matches.
+# Tags on each task so --tags kube_vip_upgrade matches selective runs (plus special always).
+
+- name: Set _kube_vip_bgp_peers fact for kube-vip manifest template
+  ansible.builtin.set_fact:
+    _kube_vip_bgp_peers: "{{ lookup('community.general.merge_variables', '^kube_vip_bgp_peers__.+$', initial_value=kube_vip_bgp_peers | default([]), groups=kube_vip_bgp_peers_groups | default(['k3s_master'])) }}"  # yamllint disable-line rule:line-length
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Build desired kube-vip image reference
+  ansible.builtin.set_fact:
+    kube_vip_desired_image: "{{ kube_vip_image_repository | default('ghcr.io/kube-vip/kube-vip') }}:{{ kube_vip_tag_version }}"
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Read current kube-vip DaemonSet image
+  ansible.builtin.command:
+    cmd: >-
+      {{ k3s_kubectl_binary | default('k3s kubectl') }}
+      get daemonset kube-vip-ds -n kube-system
+      -o jsonpath='{.spec.template.spec.containers[0].image}'
+  register: kubevip_live_image
+  changed_when: false
+  failed_when: false
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Download kube-vip RBAC for live reconcile
+  ansible.builtin.get_url:
+    url: "{{ kube_vip_rbac_manifest_url }}"
+    dest: /tmp/kube-vip-rbac-apply.yaml
+    mode: "0644"
+  when:
+    - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+    - kubevip_live_image.rc == 0
+    - (kubevip_live_image.stdout | trim | split('@') | first) != (kube_vip_desired_image | trim)
+    - kube_vip_apply_rbac_on_reconcile | default(true) | bool
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Apply kube-vip RBAC to cluster
+  ansible.builtin.command:
+    cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} apply -f /tmp/kube-vip-rbac-apply.yaml"
+  when:
+    - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+    - kubevip_live_image.rc == 0
+    - (kubevip_live_image.stdout | trim | split('@') | first) != (kube_vip_desired_image | trim)
+    - kube_vip_apply_rbac_on_reconcile | default(true) | bool
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Template kube-vip DaemonSet manifest for live reconcile
+  ansible.builtin.template:
+    src: "{{ role_path }}/../k3s_server/templates/vip.yaml.j2"
+    dest: /tmp/kube-vip-ds-apply.yaml
+    mode: "0644"
+  when:
+    - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+    - kubevip_live_image.rc == 0
+    - (kubevip_live_image.stdout | trim | split('@') | first) != (kube_vip_desired_image | trim)
+  tags:
+    - kube_vip_upgrade
+    - always
+
+- name: Apply kube-vip DaemonSet to cluster
+  ansible.builtin.command:
+    cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} apply -f /tmp/kube-vip-ds-apply.yaml"
+  when:
+    - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+    - kubevip_live_image.rc == 0
+    - (kubevip_live_image.stdout | trim | split('@') | first) != (kube_vip_desired_image | trim)
+  register: kubevip_ds_apply
+  changed_when: kubevip_ds_apply.rc == 0
+  tags:
+    - kube_vip_upgrade
+    - always

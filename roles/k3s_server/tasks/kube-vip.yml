@@ -9,8 +9,10 @@
   when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
 
 - name: Download vip cloud provider manifest to first master
+  vars:
+    _kube_vip_cp_manifest_default: "https://raw.githubusercontent.com/kube-vip/kube-vip-cloud-provider/{{ kube_vip_cloud_provider_tag_version | default('v0.0.12') }}/manifest/kube-vip-cloud-controller.yaml" # noqa yaml[line-length]
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/kube-vip/kube-vip-cloud-provider/{{ kube_vip_cloud_provider_tag_version | default('main') }}/manifest/kube-vip-cloud-controller.yaml # noqa yaml[line-length]
+    url: "{{ kube_vip_cloud_provider_manifest_url if (kube_vip_cloud_provider_manifest_url | default('', true) | trim | length) > 0 else _kube_vip_cp_manifest_default }}"
     dest: /var/lib/rancher/k3s/server/manifests/kube-vip-cloud-controller.yaml
     owner: root
     group: root

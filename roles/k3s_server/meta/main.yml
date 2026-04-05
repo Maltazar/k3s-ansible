@@ -78,13 +78,30 @@ argument_specs:
           - automatically at runtime.
         default: ~
 
+      kube_vip_image_repository:
+        description: Container image repository for kube-vip (without tag).
+        default: ghcr.io/kube-vip/kube-vip
+
+      kube_vip_rbac_manifest_url:
+        description: URL of the kube-vip RBAC manifest used at bootstrap and optional day-2 reconcile.
+        default: https://kube-vip.io/manifests/rbac.yaml
+
       kube_vip_tag_version:
         description: Image tag for kube-vip
-        default: v0.7.2
+        default: v1.1.2
 
       kube_vip_cloud_provider_tag_version:
         description: Tag for kube-vip-cloud-provider manifest when enabled
-        default: main
+        default: v0.0.12
+
+      kube_vip_cloud_provider_manifest_url:
+        description: Optional full URL for kube-vip-cloud-controller manifest; when empty, derived from tag.
+        default: ""
+
+      kube_vip_apply_rbac_on_reconcile:
+        description: When false, k3s_server_post reconcile skips RBAC apply (k3s_server bootstrap still fetches RBAC).
+        type: bool
+        default: true
 
       kube_vip_lb_ip_range:
         description: IP range for kube-vip load balancer

@@ -7,8 +7,15 @@ group_name_master: master
 
 kube_vip_arp: true
 kube_vip_iface:
-kube_vip_cloud_provider_tag_version: main
-kube_vip_tag_version: v0.7.2
+kube_vip_image_repository: ghcr.io/kube-vip/kube-vip
+# RBAC manifest (override for air-gapped installs). Default tracks kube-vip.io docs.
+kube_vip_rbac_manifest_url: https://kube-vip.io/manifests/rbac.yaml
+# Re-apply RBAC when k3s_server_post reconciles the kube-vip DaemonSet image (set false if RBAC is managed elsewhere).
+kube_vip_apply_rbac_on_reconcile: true
+kube_vip_cloud_provider_tag_version: v0.0.12
+# Optional full URL override; default builds from tag below.
+kube_vip_cloud_provider_manifest_url: ""
+kube_vip_tag_version: v1.1.2
 
 kube_vip_bgp: false
 kube_vip_bgp_routerid: 127.0.0.1

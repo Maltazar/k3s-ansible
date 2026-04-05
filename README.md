@@ -91,6 +91,10 @@ ansible-playbook reset.yml -i inventory/my-cluster/hosts.ini
 
 >You should also reboot these nodes due to the VIP not being destroyed
 
+### kube-vip image upgrades
+
+After the first install, bootstrap manifests under `/var/lib/rancher/k3s/server/manifests` are removed, but the kube-vip DaemonSet remains in the cluster. To change the kube-vip version, set `kube_vip_tag_version` in your inventory (you can pin an older tag such as `v0.8.2` or move to `v1.1.2`) and re-run `site.yml`. The `k3s_server_post` role compares the live DaemonSet image to the desired image and runs `kubectl apply` only when they differ. DaemonSet rollouts can briefly affect the control-plane VIP on HA clusters, so schedule changes accordingly. To reconcile kube-vip only, run with `--tags kube_vip_upgrade`. Set `kube_vip_apply_rbac_on_reconcile` to `false` if you do not want RBAC re-applied during reconcile (for example in air-gapped environments where you manage RBAC separately).
+
 ## ⚙️ Kube Config
 
 To copy your `kube config` locally so that you can access your **Kubernetes** cluster run:
@@ -146,8 +150,12 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server` | `kube_vip_bgp_peers` | list | `[]` | Not required | List of BGP peer ASN & address pairs |
 | `k3s_server` | `kube_vip_bgp_peers_groups` | list | `['k3s_master']` | Not required | Inventory group in which to search for additional `kube_vip_bgp_peers` parameters to merge. |
 | `k3s_server` | `kube_vip_iface` | string | `~` | Not required | Explicitly define an interface that ALL control nodes should use to propagate the VIP, define it here. Otherwise, kube-vip will determine the right interface automatically at runtime. |
-| `k3s_server` | `kube_vip_tag_version` | string | `v0.7.2` | Not required | Image tag for kube-vip |
-| `k3s_server` | `kube_vip_cloud_provider_tag_version` | string | `main` | Not required | Tag for kube-vip-cloud-provider manifest when enable |
+| `k3s_server` | `kube_vip_tag_version` | string | `v1.1.2` | Not required | Image tag for kube-vip |
+| `k3s_server` | `kube_vip_image_repository` | string | `ghcr.io/kube-vip/kube-vip` | Not required | Image repository (without tag) for kube-vip |
+| `k3s_server` | `kube_vip_rbac_manifest_url` | string | `https://kube-vip.io/manifests/rbac.yaml` | Not required | URL for kube-vip RBAC YAML (bootstrap and reconcile) |
+| `k3s_server`, `k3s_server_post` | `kube_vip_apply_rbac_on_reconcile` | bool | `true` | Not required | When `false`, day-2 reconcile skips re-applying RBAC |
+| `k3s_server` | `kube_vip_cloud_provider_tag_version` | string | `v0.0.12` | Not required | Tag for kube-vip-cloud-provider manifest when enabled |
+| `k3s_server` | `kube_vip_cloud_provider_manifest_url` | string | `""` | Not required | Full URL for cloud-controller manifest; when empty, URL is built from the tag above |
 | `k3s_server`, `k3_server_post` | `kube_vip_lb_ip_range` | string | `~` | Not required | IP range for kube-vip load balancer |
 | `k3s_server`, `k3s_server_post` | `metal_lb_controller_tag_version` | string | `v0.14.3` | Not required | Image tag for MetalLB |
 | `k3s_server` | `metal_lb_speaker_tag_version` | string | `v0.14.3` | Not required | Image tag for MetalLB |

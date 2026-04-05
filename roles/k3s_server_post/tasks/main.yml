@@ -14,6 +14,12 @@
   tags: metallb
   when: kube_vip_lb_ip_range is not defined and (not cilium_bgp or cilium_iface is not defined)
 
+- name: Reconcile kube-vip DaemonSet image if drift from inventory
+  ansible.builtin.include_tasks: kube_vip_upgrade.yml
+  tags:
+    - kube_vip_upgrade
+    - always
+
 - name: Remove tmp directory used for manifests
   ansible.builtin.file:
     path: /tmp/k3s

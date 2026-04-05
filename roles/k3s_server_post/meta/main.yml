@@ -121,6 +121,33 @@ argument_specs:
         description: IP range for kube-vip load balancer
         default: ~
 
+      kube_vip_tag_version:
+        description: kube-vip image tag (day-2 reconcile compares cluster DaemonSet to this).
+        default: v1.1.2
+
+      kube_vip_image_repository:
+        description: kube-vip image repository without tag.
+        default: ghcr.io/kube-vip/kube-vip
+
+      kube_vip_bgp_peers:
+        description: Merged list of extra BGP peers for kube-vip manifest templating during reconcile.
+        type: list
+        default: []
+
+      kube_vip_bgp_peers_groups:
+        description: Inventory groups scanned for merged kube_vip_bgp_peers variables.
+        type: list
+        default: ['k3s_master']
+
+      kube_vip_rbac_manifest_url:
+        description: RBAC manifest URL when reconcile re-applies RBAC.
+        default: https://kube-vip.io/manifests/rbac.yaml
+
+      kube_vip_apply_rbac_on_reconcile:
+        description: When false, skip RBAC download/apply during kube-vip DaemonSet reconcile.
+        type: bool
+        default: true
+
       metal_lb_available_timeout:
         description: Wait for MetalLB resources
         default: 240s
