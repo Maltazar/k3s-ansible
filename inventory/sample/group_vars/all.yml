@@ -37,6 +37,11 @@ cilium_gateway_crd_versions: v1.4.1 # cilium gateway crd version
 cilium_bgp_api_version: v2
 kube_proxy_replacement: true
 
+# Optional Cilium upgrade / preflight overrides (see README "Cilium upgrades"; role defaults apply if omitted):
+# cilium_helm_version: "3.14.4" # Helm CLI version installed on first master when preflight runs (Cilium upgrade path only).
+# cilium_preflight_rollout_timeout: 600s # Timeout for kubectl rollout status on preflight DaemonSet and Deployment.
+# cilium_upgrade_compatibility_override: "1.12" # Optional: Helm upgradeCompatibility major.minor if not the running image minor; omit for auto-derive from cluster.
+
 # enable kube-vip ARP broadcasts
 kube_vip_arp: true
 

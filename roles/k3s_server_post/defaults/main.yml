@@ -23,6 +23,8 @@ cilium_gateway_crd_versions: v1.4.1 # cilium gateway crd version
 # Helm CLI is installed on the first master only when running Cilium preflight (upgrade path).
 cilium_helm_version: "3.14.4"
 cilium_preflight_rollout_timeout: 600s
+# If set (e.g. "1.12"), passed as Helm upgradeCompatibility on upgrade instead of deriving from the running image.
+cilium_upgrade_compatibility_override: ""
 cilium_tag: v1.19.2
 cilium_hubble: true
 cilium_mode: native

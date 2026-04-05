@@ -177,6 +177,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
 | `k3s_server_post` | `cilium_tag` | string | `v1.19.2` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
+| `k3s_server_post` | `cilium_upgrade_compatibility_override` | string | `""` | Not required | Optional `major.minor` for Helm `upgradeCompatibility` on upgrade; when empty, derived from the running Cilium image |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |
 | `k3s_server_post` | `kube_proxy_replacement` | bool | `true` | Not required | Replace the native kube-proxy with Cilium |
@@ -198,9 +199,15 @@ When `cilium_iface` is set, the first master compares the **running** Cilium ima
 
 - **Fresh cluster:** `cilium install` (no preflight, no `upgradeCompatibility`).
 - **Version matches:** skips install/upgrade; BGP manifests are still applied idempotently when `cilium_bgp` is true.
-- **Version differs:** runs Cilium [preflight](https://docs.cilium.io/en/v1.19/operations/upgrade/#running-pre-flight-check-required) from the Helm chart matching the **target** `cilium_tag` (including `k8sServiceHost` / `k8sServicePort` when kube-proxy replacement is enabled), removes preflight objects, then `cilium upgrade` with `--helm-set upgradeCompatibility=<running major.minor>` to match the [upgrade guide](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-2-use-helm-to-upgrade-your-cilium-deployment).
+- **Version differs:** runs Cilium [preflight](https://docs.cilium.io/en/v1.19/operations/upgrade/#running-pre-flight-check-required) from the Helm chart matching the **target** `cilium_tag` (including `k8sServiceHost` / `k8sServicePort` when kube-proxy replacement is enabled), removes preflight objects, then `cilium upgrade` with `--helm-set upgradeCompatibility=<running major.minor>` to match the [upgrade guide](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-2-use-helm-to-upgrade-your-cilium-deployment). If the cluster was first installed on an older minor than what is running now, you can set `cilium_upgrade_compatibility_override` (e.g. `1.12`) instead of relying on the derived value.
 
-Only **one minor version step** per upgrade is allowed (for example 1.18.x → 1.19.x). For **Cilium 1.19+**, `cilium_bgp_api_version: v2alpha1` and any `CiliumBGPPeeringPolicy` CRs cause a hard failure until you migrate to BGP v2 — see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
+Only **one minor version step** per upgrade is allowed (for example 1.18.x → 1.19.x). Cilium recommends moving to the [latest patch on your current minor](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-1-upgrade-to-latest-patch-version) before jumping to the next minor; this role does not enforce that automatically.
+
+For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha1`, if any `CiliumBGPPeeringPolicy` CR exists, or if any `CiliumLoadBalancerIPPool` is still stored as `cilium.io/v2alpha1` — see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
+
+**Air-gapped clusters:** Cilium CLI, Helm (on upgrade), and `helm template oci://quay.io/...` need outbound access or local mirrors of those artifacts.
+
+**Architecture:** The role only installs **linux-amd64** or **linux-arm64** Cilium CLI and Helm on the first master (`x86_64` / `aarch64`). Other `ansible_architecture` values (for example `armv7l`) fail fast.
 
 The role’s `--helm-set` options align with current Cilium Helm values; if you use a very old `cilium_tag`, confirm options against that release’s chart.
 

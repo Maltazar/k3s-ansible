@@ -172,3 +172,10 @@ argument_specs:
         description: kubectl rollout status timeout for Cilium preflight DaemonSet and Deployment.
         type: string
         default: 600s
+
+      cilium_upgrade_compatibility_override:
+        description: >-
+          Optional major.minor string for Helm upgradeCompatibility on upgrade (e.g. 1.12).
+          When empty, the role derives it from the currently running Cilium image.
+        type: string
+        default: ""
