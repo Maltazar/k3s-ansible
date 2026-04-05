@@ -32,15 +32,15 @@ spec:
           value: "{{ 'true' if kube_vip_bgp | default(false) | bool else 'false' }}"
         - name: port
           value: "6443"
-{% if kube_proxy_replacement %}
+{% if kube_proxy_replacement | default(false) | bool %}
         - name: KUBERNETES_SERVICE_HOST
           value: "127.0.0.1"
         - name: KUBERNETES_SERVICE_PORT
           value: "6443"
 {% endif %}
-{% if kube_vip_iface %}
+{% if (kube_vip_iface | default('', true) | trim | length) > 0 %}
         - name: vip_interface
-          value: {{ kube_vip_iface }}
+          value: {{ kube_vip_iface | trim }}
 {% endif %}
 {% set _kv_tag = kube_vip_tag_version | regex_replace('^v', '') %}
 {% if _kv_tag is version_compare('0.9.0', '<') %}

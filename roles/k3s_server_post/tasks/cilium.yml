@@ -249,11 +249,17 @@
 
         # Full tag mismatch => reconcile with cilium upgrade/install. Preflight + upgradeCompatibility
         # only when crossing major/minor vs target; patch-only (e.g. 1.19.1 -> v1.19.2) skips that path.
+        # Same set_fact cannot reference sibling keys (e.g. cilium_needs_update must not use *_normalized).
         - name: Derive Cilium update flags from installed vs target tag
           ansible.builtin.set_fact:
             cilium_installed_tag_normalized: "v{{ installed_cilium_version | regex_replace('^v', '') }}"
             cilium_target_tag_normalized: "v{{ cilium_tag | regex_replace('^v', '') }}"
-            cilium_needs_update: "{{ cilium_installed_tag_normalized != cilium_target_tag_normalized }}"
+            cilium_needs_update: >-
+              {{
+                ('v' ~ (installed_cilium_version | regex_replace('^v', '') | trim))
+                !=
+                ('v' ~ (cilium_tag | regex_replace('^v', '') | trim))
+              }}
             _cilium_installed_sv: "{{ installed_cilium_version | regex_replace('^v', '') }}"
             _cilium_target_sv: "{{ cilium_tag | regex_replace('^v', '') }}"
 
