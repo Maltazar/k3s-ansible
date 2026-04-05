@@ -159,28 +159,62 @@
           changed_when: false
           ignore_errors: true
 
-        # Parsed from `cilium version` (format follows cilium-cli stable.txt on this node).
+        # DaemonSet image is authoritative. `cilium version` lists (default) before (running); joining
+        # lines and matching the first "cilium image...X.Y.Z" captures (default) and mis-reports upgrades.
+        - name: Get Cilium agent image reference from DaemonSet
+          ansible.builtin.shell: |
+            set -euo pipefail
+            K="{{ k3s_kubectl_binary | default('k3s kubectl') }}"
+            img="$($K -n kube-system get daemonset cilium \
+              -o jsonpath='{.spec.template.spec.containers[?(@.name=="cilium")].image}' 2>/dev/null || true)"
+            if [ -z "$img" ]; then
+              img="$($K -n kube-system get daemonset cilium \
+                -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+            fi
+            printf '%s' "$img"
+          args:
+            executable: /bin/bash
+          register: cilium_ds_cilium_image
+          changed_when: false
+          failed_when: false
+
+        # Prefer (running) over (default) / stable when falling back to CLI text.
         - name: Parse installed Cilium version
           ansible.builtin.set_fact:
             installed_cilium_version: >-
               {{
                 (
-                  cilium_version.stdout_lines
-                  | join(' ')
+                  cilium_ds_cilium_image.stdout | default('') | trim
+                  | regex_findall(':(?:v)?(\d+\.\d+\.\d+)')
+                  | first
+                  | default('')
+                )
+                or (
+                  cilium_version.stdout | default('')
+                  | regex_findall('cilium image \(running\):[^\n]*?(?:/|:)(?:v)?(\d+\.\d+\.\d+)')
+                  | first
+                  | default('')
+                )
+                or (
+                  cilium_version.stdout | default('')
+                  | regex_findall('cilium image \(running\):\s*v?(\d+\.\d+\.\d+)')
+                  | first
+                  | default('')
+                )
+                or (
+                  cilium_version.stdout | default('')
+                  | regex_findall('cilium image \(default\):\s*v?(\d+\.\d+\.\d+)')
+                  | first
+                  | default('')
+                )
+                or (
+                  cilium_version.stdout | default('')
                   | regex_findall('cilium image.+?(\d+\.\d+\.\d+)')
                   | first
                   | default('')
                 )
                 or (
-                  cilium_version.stdout_lines
-                  | join(' ')
-                  | regex_findall('cilium image[^\n:]*:\s*v?(\d+\.\d+\.\d+)')
-                  | first
-                  | default('')
-                )
-                or (
-                  cilium_version.stdout_lines
-                  | join(' ')
+                  cilium_version.stdout | default('')
                   | regex_findall('image[^\n:]*:\s*\S+:(?:v)?(\d+\.\d+\.\d+)')
                   | first
                   | default('')
@@ -191,21 +225,38 @@
         - name: Fail if installed Cilium version cannot be parsed
           ansible.builtin.fail:
             msg: >-
-              Could not parse Cilium image version from `cilium version` output.
-              Fix connectivity to the cluster or the CLI install before retrying.
+              Could not parse Cilium version from the cilium DaemonSet image or `cilium version`.
+              Check `kubectl -n kube-system get ds cilium -o yaml` (image tag) and cluster connectivity.
           when: installed_cilium_version == 'unknown'
 
-        - name: Apply version comparison facts when upgrade needed
+        # Full tag mismatch => reconcile with cilium upgrade/install. Preflight + upgradeCompatibility
+        # only when crossing major/minor vs target; patch-only (e.g. 1.19.1 -> v1.19.2) skips that path.
+        - name: Derive Cilium update flags from installed vs target tag
           ansible.builtin.set_fact:
-            cilium_needs_update: true
-            cilium_is_upgrade: true
-          when: "'v' + installed_cilium_version != cilium_tag"
+            cilium_installed_tag_normalized: "v{{ installed_cilium_version | regex_replace('^v', '') }}"
+            cilium_target_tag_normalized: "v{{ cilium_tag | regex_replace('^v', '') }}"
+            cilium_needs_update: "{{ cilium_installed_tag_normalized != cilium_target_tag_normalized }}"
+            _cilium_installed_sv: "{{ installed_cilium_version | regex_replace('^v', '') }}"
+            _cilium_target_sv: "{{ cilium_tag | regex_replace('^v', '') }}"
 
-        - name: Mark Cilium as up to date when version matches target
+        - name: Classify patch-only change within target major.minor
           ansible.builtin.set_fact:
-            cilium_needs_update: false
-            cilium_is_upgrade: false
-          when: "'v' + installed_cilium_version == cilium_tag"
+            cilium_patch_only_vs_target: >-
+              {{
+                cilium_needs_update | bool
+                and (
+                  _cilium_installed_sv is version(_cilium_target_mm_floor, '>=')
+                  and _cilium_installed_sv is version(_cilium_target_mm_next, '<')
+                )
+              }}
+          vars:
+            _tp: "{{ _cilium_target_sv.split('.') }}"
+            _cilium_target_mm_floor: "{{ _tp[0] }}.{{ _tp[1] }}.0"
+            _cilium_target_mm_next: "{{ _tp[0] }}.{{ (_tp[1] | int + 1) }}.0"
+
+        - name: Set preflight/minor-upgrade flag (not patch-only)
+          ansible.builtin.set_fact:
+            cilium_is_upgrade: "{{ cilium_needs_update | bool and not (cilium_patch_only_vs_target | default(false) | bool) }}"
 
     - name: Set Cilium chart semver facts
       ansible.builtin.set_fact:
@@ -216,8 +267,9 @@
       ansible.builtin.debug:
         msg: >-
           present={{ cilium_present }}, needs_update={{ cilium_needs_update }},
-          is_upgrade={{ cilium_is_upgrade }}, installed={{ installed_cilium_version | default('n/a') }},
-          target={{ cilium_tag }}
+          is_preflight_minor_upgrade={{ cilium_is_upgrade }},
+          patch_only_vs_target={{ cilium_patch_only_vs_target | default(false) }},
+          installed={{ installed_cilium_version | default('n/a') }}, target={{ cilium_tag }}
 
     - name: Reject legacy BGP API when targeting Cilium 1.19+
       ansible.builtin.fail:
@@ -343,6 +395,7 @@
             rm -f /tmp/k3s/helm
             tar -xzf "/tmp/k3s/helm-v{{ cilium_helm_version }}-linux-{{ cilium_helm_arch }}.tar.gz" \
               -C /tmp/k3s \
+              --strip-components=1 \
               "linux-{{ cilium_helm_arch }}/helm"
           args:
             executable: /bin/bash
