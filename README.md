@@ -170,9 +170,13 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_neighbors_groups` | list | `['k3s_all']` | Not required | Inventory group in which to search for additional `cilium_bgp_neighbors` parameters to merge. |
 | `k3s_server_post` | `cilium_bgp_lb_cidr` | string | `192.168.31.0/24` | Not required | BGP load balancer IP range |
 | `k3s_server_post` | `cilium_exportPodCIDR` | bool | `true` | Not required | Export pod CIDR |
-| `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble |
+| `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 — BGPv1 CRDs are removed in 1.19) |
+| `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.4.1` | Not required | Gateway API CRD bundle version applied before Cilium when kube-proxy replacement is enabled |
+| `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
 | `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
+| `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
+| `k3s_server_post` | `cilium_tag` | string | `v1.19.2` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |
 | `k3s_server_post` | `kube_proxy_replacement` | bool | `true` | Not required | Replace the native kube-proxy with Cilium |
@@ -188,6 +192,17 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `proxmox_lxc`, `reset_proxmox_lxc` | `proxmox_lxc_ct_ids` | list | ❌ | Required | Proxmox container ID list |
 | `raspberrypi` | `state` | string | `present` | Not required | Indicates whether the k3s prerequisites for Raspberry Pi should be set up (possible values are `present` and `absent`) |
 
+### Cilium upgrades
+
+When `cilium_iface` is set, the first master compares the **running** Cilium image to `cilium_tag`:
+
+- **Fresh cluster:** `cilium install` (no preflight, no `upgradeCompatibility`).
+- **Version matches:** skips install/upgrade; BGP manifests are still applied idempotently when `cilium_bgp` is true.
+- **Version differs:** runs Cilium [preflight](https://docs.cilium.io/en/v1.19/operations/upgrade/#running-pre-flight-check-required) from the Helm chart matching the **target** `cilium_tag` (including `k8sServiceHost` / `k8sServicePort` when kube-proxy replacement is enabled), removes preflight objects, then `cilium upgrade` with `--helm-set upgradeCompatibility=<running major.minor>` to match the [upgrade guide](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-2-use-helm-to-upgrade-your-cilium-deployment).
+
+Only **one minor version step** per upgrade is allowed (for example 1.18.x → 1.19.x). For **Cilium 1.19+**, `cilium_bgp_api_version: v2alpha1` and any `CiliumBGPPeeringPolicy` CRs cause a hard failure until you migrate to BGP v2 — see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
+
+The role’s `--helm-set` options align with current Cilium Helm values; if you use a very old `cilium_tag`, confirm options against that release’s chart.
 
 ### Troubleshooting
 

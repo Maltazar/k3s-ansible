@@ -162,3 +162,13 @@ argument_specs:
       cilium_gateway_crd_versions:
         description: Cilium Gateway CRD version
         default: v1.4.1
+
+      cilium_helm_version:
+        description: Helm release used to render Cilium preflight manifests on upgrade (linux tarball from get.helm.sh).
+        type: string
+        default: "3.14.4"
+
+      cilium_preflight_rollout_timeout:
+        description: kubectl rollout status timeout for Cilium preflight DaemonSet and Deployment.
+        type: string
+        default: 600s

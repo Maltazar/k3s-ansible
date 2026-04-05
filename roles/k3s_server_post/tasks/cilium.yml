@@ -8,7 +8,7 @@
       when: kube_proxy_replacement
       ansible.builtin.command: >-
         {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
-    
+
     - name: Deploy Gateway API CRDs experimental
       when: kube_proxy_replacement
       ansible.builtin.command: >-
@@ -60,7 +60,7 @@
 
     - name: Log latest stable Cilium CLI version
       ansible.builtin.debug:
-        msg: "Latest Cilium CLI version: {{ cli_ver.stdout }}"
+        msg: "Latest stable Cilium CLI version: {{ cli_ver.stdout }}"
 
     - name: Determine if Cilium CLI needs installation or update
       ansible.builtin.set_fact:
@@ -134,8 +134,15 @@
       changed_when: false
       ignore_errors: true
 
-    - name: Check existing Cilium install
-      when: cilium_installed.rc == 0
+    - name: Set initial Cilium state facts
+      ansible.builtin.set_fact:
+        cilium_present: "{{ cilium_installed.rc == 0 }}"
+        installed_cilium_version: ""
+        cilium_needs_update: "{{ cilium_installed.rc != 0 }}"
+        cilium_is_upgrade: false
+
+    - name: Refresh Cilium version from cluster when present
+      when: cilium_present
       block:
         - name: Check Cilium version
           ansible.builtin.command: cilium version
@@ -155,19 +162,188 @@
                 | default('unknown')
               }}
 
-        - name: Determine if Cilium needs update
+        - name: Fail if installed Cilium version cannot be parsed
+          ansible.builtin.fail:
+            msg: >-
+              Could not parse Cilium image version from `cilium version` output.
+              Fix connectivity to the cluster or the CLI install before retrying.
+          when: installed_cilium_version == 'unknown'
+
+        - name: Apply version comparison facts when upgrade needed
           ansible.builtin.set_fact:
-            cilium_needs_update: >-
-              {{ 'v' + installed_cilium_version != cilium_tag }}
+            cilium_needs_update: true
+            cilium_is_upgrade: true
+          when: "'v' + installed_cilium_version != cilium_tag"
 
-        - name: Log result
-          ansible.builtin.debug:
-            msg: >
-              Installed Cilium version: {{ installed_cilium_version }},
-              Target Cilium version: {{ cilium_tag }},
-              Update needed: {{ cilium_needs_update }}
+        - name: Mark Cilium as up to date when version matches target
+          ansible.builtin.set_fact:
+            cilium_needs_update: false
+            cilium_is_upgrade: false
+          when: "'v' + installed_cilium_version == cilium_tag"
 
-    - name: Install Cilium
+    - name: Set Cilium chart semver facts
+      ansible.builtin.set_fact:
+        cilium_chart_version: "{{ cilium_tag | regex_replace('^v', '') }}"
+        cilium_target_ge_119: "{{ (cilium_tag | regex_replace('^v', '')) is version('1.19.0', '>=') }}"
+
+    - name: Log Cilium upgrade state
+      ansible.builtin.debug:
+        msg: >-
+          present={{ cilium_present }}, needs_update={{ cilium_needs_update }},
+          is_upgrade={{ cilium_is_upgrade }}, installed={{ installed_cilium_version | default('n/a') }},
+          target={{ cilium_tag }}
+
+    - name: Reject legacy BGP API when targeting Cilium 1.19+
+      ansible.builtin.fail:
+        msg: >-
+          cilium_bgp_api_version v2alpha1 (CiliumBGPPeeringPolicy) is removed in Cilium 1.19+.
+          Set cilium_bgp_api_version to v2 and migrate CRDs before upgrading.
+          See https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes
+      when:
+        - cilium_target_ge_119 | bool
+        - (cilium_bgp_api_version | default('v2') | trim) == 'v2alpha1'
+
+    - name: List CiliumBGPPeeringPolicy resources when targeting Cilium 1.19+
+      ansible.builtin.command: >-
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} get ciliumbgppeeringpolicies.cilium.io -o name --ignore-not-found
+      register: cilium_bgpv1_policy_list
+      changed_when: false
+      failed_when: false
+      when: cilium_target_ge_119 | bool
+
+    - name: Fail if CiliumBGPPeeringPolicy CRs still exist
+      ansible.builtin.fail:
+        msg: >-
+          CiliumBGPPeeringPolicy resources are present but BGPv1 is removed in Cilium 1.19+.
+          Delete or migrate them to BGP v2 CRDs, then retry.
+          See https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes
+      when:
+        - cilium_target_ge_119 | bool
+        - cilium_bgpv1_policy_list is defined
+        - cilium_bgpv1_policy_list.rc == 0
+        - (cilium_bgpv1_policy_list.stdout | default('') | trim | length) > 0
+
+    - name: Validate consecutive minor upgrade path
+      when: cilium_is_upgrade | bool
+      ansible.builtin.assert:
+        that:
+          - (cilium_chart_version.split('.') | length) >= 2
+          - (installed_cilium_version.split('.') | length) >= 2
+          - (cilium_chart_version.split('.')[0] | int) == (installed_cilium_version.split('.')[0] | int)
+          - >-
+            ((cilium_chart_version.split('.')[1] | int) - (installed_cilium_version.split('.')[1] | int)) <= 1
+          - >-
+            ((cilium_chart_version.split('.')[1] | int) - (installed_cilium_version.split('.')[1] | int)) >= 0
+        fail_msg: >-
+          Cilium supports upgrading at most one minor release at a time (see
+          https://docs.cilium.io/en/v1.19/operations/upgrade/ ).
+          Installed: {{ installed_cilium_version }}, target chart: {{ cilium_chart_version }}.
+
+    - name: Derive Helm upgradeCompatibility from running Cilium (upgrade path only)
+      ansible.builtin.set_fact:
+        cilium_upgrade_compatibility_helm: "{{ installed_cilium_version.split('.')[0] ~ '.' ~ installed_cilium_version.split('.')[1] }}"
+      when:
+        - cilium_is_upgrade | bool
+        - installed_cilium_version | default('') | length > 0
+        - installed_cilium_version != 'unknown'
+
+    - name: Ensure Helm is available for Cilium preflight
+      when: cilium_is_upgrade | bool
+      block:
+        - name: Check for helm binary
+          ansible.builtin.command: helm version
+          register: cilium_helm_check
+          failed_when: false
+          changed_when: false
+
+        - name: Set Helm architecture
+          ansible.builtin.set_fact:
+            cilium_helm_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+          when: cilium_helm_check.rc != 0
+
+        - name: Download Helm
+          ansible.builtin.get_url:
+            url: "https://get.helm.sh/helm-v{{ cilium_helm_version }}-linux-{{ cilium_helm_arch }}.tar.gz"
+            dest: "/tmp/k3s/helm-v{{ cilium_helm_version }}-linux-{{ cilium_helm_arch }}.tar.gz"
+            mode: "0644"
+          when: cilium_helm_check.rc != 0
+
+        - name: Extract Helm binary to tmp
+          ansible.builtin.shell: |
+            set -euo pipefail
+            rm -f /tmp/k3s/helm
+            tar -xzf "/tmp/k3s/helm-v{{ cilium_helm_version }}-linux-{{ cilium_helm_arch }}.tar.gz" \
+              -C /tmp/k3s \
+              "linux-{{ cilium_helm_arch }}/helm"
+          args:
+            executable: /bin/bash
+          when: cilium_helm_check.rc != 0
+          changed_when: true
+
+        - name: Copy Helm into PATH
+          ansible.builtin.copy:
+            src: /tmp/k3s/helm
+            dest: /usr/local/bin/helm
+            mode: "0755"
+            remote_src: true
+          when: cilium_helm_check.rc != 0
+
+    - name: Run Cilium Helm preflight before upgrade
+      when: cilium_is_upgrade | bool
+      environment:
+        KUBECONFIG: "{{ ansible_user_dir }}/.kube/config"
+      block:
+        - name: Render Cilium preflight manifest
+          ansible.builtin.shell: |
+            set -euo pipefail
+            helm template cilium-preflight oci://quay.io/cilium/charts/cilium \
+              --version "{{ cilium_chart_version }}" \
+              --namespace kube-system \
+              --set preflight.enabled=true \
+              --set agent=false \
+              --set operator.enabled=false \
+            {% if kube_proxy_replacement | default(true) | bool %}
+              --set k8sServiceHost=127.0.0.1 \
+              --set k8sServicePort=6444 \
+            {% endif %}
+              > /tmp/k3s/cilium-preflight.yaml
+          args:
+            executable: /bin/bash
+          changed_when: true
+
+        - name: Remove stale Cilium preflight resources
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} delete -f /tmp/k3s/cilium-preflight.yaml --ignore-not-found
+          register: cilium_preflight_delete
+          changed_when: "'deleted' in cilium_preflight_delete.stdout | lower"
+          failed_when: false
+
+        - name: Apply Cilium preflight manifest
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} apply -f /tmp/k3s/cilium-preflight.yaml
+          register: cilium_preflight_apply
+          changed_when: "'configured' in cilium_preflight_apply.stdout or 'created' in cilium_preflight_apply.stdout"
+
+        - name: Wait for Cilium preflight DaemonSet rollout
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} rollout status daemonset/cilium-pre-flight-check
+            -n kube-system --timeout={{ cilium_preflight_rollout_timeout }}
+          changed_when: false
+
+        - name: Wait for Cilium preflight Deployment availability
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} rollout status deployment/cilium-pre-flight-check
+            -n kube-system --timeout={{ cilium_preflight_rollout_timeout }}
+          changed_when: false
+
+        - name: Delete Cilium preflight manifest from cluster
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} delete -f /tmp/k3s/cilium-preflight.yaml --ignore-not-found
+          register: cilium_preflight_cleanup
+          changed_when: "'deleted' in cilium_preflight_cleanup.stdout | lower"
+          failed_when: false
+
+    - name: Install or upgrade Cilium
       ansible.builtin.command: >-
         {% if cilium_installed.rc != 0 %}
         cilium install
@@ -196,11 +372,16 @@
         --helm-set bpf.loadBalancer.mode={{ bpf_lb_mode }}
         --helm-set gatewayAPI.enabled=true
         {% endif %}
+        {% if cilium_is_upgrade | default(false) | bool %}
+        {% if cilium_upgrade_compatibility_helm is defined %}
+        --helm-set upgradeCompatibility={{ cilium_upgrade_compatibility_helm }}
+        {% endif %}
+        {% endif %}
       environment:
         KUBECONFIG: "{{ ansible_user_dir }}/.kube/config"
       register: cilium_install_result
       changed_when: cilium_install_result.rc == 0
-      when: cilium_installed.rc != 0 or cilium_needs_update
+      when: cilium_needs_update | default(true) | bool
 
     - name: Wait for Cilium resources
       ansible.builtin.command: >-
@@ -248,7 +429,7 @@
             owner: root
             group: root
             mode: "0755"
-          when: cilium_bgp_api_version | default('v2') | trim == 'v2'
+          when: (cilium_bgp_api_version | default('v2') | trim) == 'v2'
 
         - name: Copy BGP manifests (v2alpha1 API - legacy) to first master
           ansible.builtin.template:
@@ -257,7 +438,7 @@
             owner: root
             group: root
             mode: "0755"
-          when: cilium_bgp_api_version | default('v2') | trim == 'v2alpha1'
+          when: (cilium_bgp_api_version | default('v2') | trim) == 'v2alpha1'
 
         - name: Apply BGP manifests
           ansible.builtin.command:
@@ -282,7 +463,7 @@
           changed_when: false
           loop_control:
             label: "{{ item }}"
-          when: cilium_bgp_api_version == 'v2'
+          when: (cilium_bgp_api_version | default('v2') | trim) == 'v2'
 
         - name: Test for BGP config resources (v2alpha1 API - legacy)
           ansible.builtin.command: "{{ item }}"
@@ -292,4 +473,4 @@
           changed_when: false
           loop_control:
             label: "{{ item }}"
-          when: cilium_bgp_api_version == 'v2alpha1'
+          when: (cilium_bgp_api_version | default('v2') | trim) == 'v2alpha1'
