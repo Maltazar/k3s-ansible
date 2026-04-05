@@ -191,7 +191,9 @@ argument_specs:
           - v2alpha1
 
       cilium_gateway_crd_versions:
-        description: Cilium Gateway CRD version
+        description: >-
+          Gateway API release tag for standard-install.yaml and experimental-install.yaml (e.g. v1.5.1).
+          v1.5+ applies experimental before standard and temporarily removes safe-upgrades VAP so both bundles install.
         default: v1.4.1
 
       cilium_helm_version:

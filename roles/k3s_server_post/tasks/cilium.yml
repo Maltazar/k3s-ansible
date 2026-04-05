@@ -4,15 +4,33 @@
   run_once: true
   block:
 
-    - name: Deploy Gateway API CRDs
+    # Gateway API v1.5+ ships ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
+    # with standard CRDs; it rejects applying experimental-install atop standard. Remove it first,
+    # apply experimental then standard so both bundles succeed and the policy is re-applied last.
+    # See https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.5.0 (Breaking Changes).
+    - name: Remove Gateway API safe-upgrades ValidatingAdmissionPolicy binding
       when: kube_proxy_replacement
       ansible.builtin.command: >-
-        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} delete validatingadmissionpolicybinding safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+      register: gw_api_safe_upgrades_binding_delete
+      changed_when: "'deleted' in (gw_api_safe_upgrades_binding_delete.stdout | default(''))"
+
+    - name: Remove Gateway API safe-upgrades ValidatingAdmissionPolicy
+      when: kube_proxy_replacement
+      ansible.builtin.command: >-
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+      register: gw_api_safe_upgrades_policy_delete
+      changed_when: "'deleted' in (gw_api_safe_upgrades_policy_delete.stdout | default(''))"
 
     - name: Deploy Gateway API CRDs experimental
       when: kube_proxy_replacement
       ansible.builtin.command: >-
         {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/experimental-install.yaml
+
+    - name: Deploy Gateway API CRDs
+      when: kube_proxy_replacement
+      ansible.builtin.command: >-
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
 
     - name: Create tmp directory on first master
       ansible.builtin.file:
