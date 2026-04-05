@@ -150,6 +150,18 @@
     state: link
   when: k3s_create_crictl_symlink | default(true) | bool
 
+- name: Wait for kube-vip DaemonSet to be deployed by auto-deploy controller
+  ansible.builtin.command:
+    cmd: >-
+      {{ k3s_kubectl_binary | default('k3s kubectl') }}
+      get daemonset kube-vip-ds -n kube-system -o jsonpath='{.metadata.name}'
+  register: kubevip_ds
+  until: kubevip_ds.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+
 - name: Get contents of manifests folder
   ansible.builtin.find:
     paths: /var/lib/rancher/k3s/server/manifests
