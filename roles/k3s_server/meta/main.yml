@@ -82,9 +82,15 @@ argument_specs:
         description: Container image repository for kube-vip (without tag).
         default: ghcr.io/kube-vip/kube-vip
 
+      kube_vip_image_pull_policy:
+        description: imagePullPolicy for the kube-vip container (e.g. IfNotPresent, Always).
+        default: IfNotPresent
+
       kube_vip_rbac_manifest_url:
-        description: URL of the kube-vip RBAC manifest used at bootstrap and optional day-2 reconcile.
-        default: https://kube-vip.io/manifests/rbac.yaml
+        description: >-
+          When empty, use roles/k3s_server/files/kube-vip-rbac.yaml at bootstrap and reconcile.
+          When non-empty, download RBAC from this URL.
+        default: ""
 
       kube_vip_tag_version:
         description: Image tag for kube-vip
@@ -99,7 +105,7 @@ argument_specs:
         default: ""
 
       kube_vip_apply_rbac_on_reconcile:
-        description: When false, k3s_server_post reconcile skips RBAC apply (k3s_server bootstrap still fetches RBAC).
+        description: When false, k3s_server_post reconcile skips RBAC apply (bootstrap still installs RBAC from bundle or URL).
         type: bool
         default: true
 

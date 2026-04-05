@@ -140,8 +140,12 @@ argument_specs:
         default: ['k3s_master']
 
       kube_vip_rbac_manifest_url:
-        description: RBAC manifest URL when reconcile re-applies RBAC.
-        default: https://kube-vip.io/manifests/rbac.yaml
+        description: When empty, use bundled kube-vip-rbac.yaml; when set, download for reconcile RBAC apply.
+        default: ""
+
+      kube_vip_image_pull_policy:
+        description: imagePullPolicy for kube-vip (passed through vip.yaml.j2).
+        default: IfNotPresent
 
       kube_vip_apply_rbac_on_reconcile:
         description: When false, skip RBAC download/apply during kube-vip DaemonSet reconcile.

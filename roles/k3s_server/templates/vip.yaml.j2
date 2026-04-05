@@ -91,7 +91,7 @@ spec:
 {% endif %}
 {% endif %}
         image: {{ kube_vip_image_repository | default('ghcr.io/kube-vip/kube-vip') }}:{{ kube_vip_tag_version }}
-        imagePullPolicy: Always
+        imagePullPolicy: {{ kube_vip_image_pull_policy | default('IfNotPresent') }}
         name: kube-vip
         resources: {}
         securityContext:
@@ -99,7 +99,6 @@ spec:
             add:
             - NET_ADMIN
             - NET_RAW
-            - SYS_TIME
       hostNetwork: true
       serviceAccountName: kube-vip
       tolerations:

@@ -37,9 +37,10 @@ group_name_master: master
 # kube-vip day-2 reconcile (see README). Mirrored here so tag-only runs have safe defaults.
 kube_vip_tag_version: v1.1.2
 kube_vip_image_repository: ghcr.io/kube-vip/kube-vip
+kube_vip_image_pull_policy: IfNotPresent
 kube_vip_bgp_peers: []
 kube_vip_bgp_peers_groups: ['k3s_master']
-kube_vip_rbac_manifest_url: https://kube-vip.io/manifests/rbac.yaml
+kube_vip_rbac_manifest_url: ""
 kube_vip_apply_rbac_on_reconcile: true
 
 metal_lb_mode: layer2
