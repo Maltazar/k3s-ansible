@@ -32,6 +32,57 @@
       ansible.builtin.command: >-
         {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
 
+    # Cilium 1.19.x hardcodes gatewayv1alpha2.TLSRoute in its operator; Gateway API v1.5+ ships
+    # TLSRoute as v1 and sets v1alpha2 served=false. Patch the CRD so both versions are served,
+    # preventing the operator crash "no matches for kind TLSRoute in version v1alpha2".
+    # See https://github.com/cilium/cilium/issues/45139
+    - name: Ensure TLSRoute CRD serves v1alpha2 for Cilium 1.19.x compatibility
+      when:
+        - kube_proxy_replacement
+        - (cilium_gateway_crd_versions | regex_replace('^v', '')) is version('1.5.0', '>=')
+        - (cilium_gateway_crd_versions | regex_replace('^v', '')) is version('1.6.0', '<')
+        - (cilium_tag | regex_replace('^v', '')) is version('1.19.0', '>=')
+        - (cilium_tag | regex_replace('^v', '')) is version('1.20.0', '<')
+      block:
+        - name: Get current TLSRoute CRD spec.versions
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} get crd tlsroutes.gateway.networking.k8s.io
+            -o jsonpath='{.spec.versions[*].name}'
+          register: tlsroute_versions
+          changed_when: false
+          failed_when: tlsroute_versions.rc != 0
+
+        - name: Check if v1alpha2 is already served
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} get crd tlsroutes.gateway.networking.k8s.io
+            -o jsonpath='{.spec.versions[?(@.name=="v1alpha2")].served}'
+          register: tlsroute_v1alpha2_served
+          changed_when: false
+          failed_when: false
+
+        - name: Patch TLSRoute CRD to serve v1alpha2
+          when: tlsroute_v1alpha2_served.stdout != 'true'
+          ansible.builtin.shell: |
+            set -euo pipefail
+            K="{{ k3s_kubectl_binary | default('k3s kubectl') }}"
+            # Find the index of v1alpha2 in spec.versions
+            idx=$($K get crd tlsroutes.gateway.networking.k8s.io -o json \
+              | python3 -c "import sys,json; versions=json.load(sys.stdin)['spec']['versions']; print(next(i for i,v in enumerate(versions) if v['name']=='v1alpha2'))")
+            $K patch crd tlsroutes.gateway.networking.k8s.io \
+              --type=json -p="[{\"op\":\"replace\",\"path\":\"/spec/versions/${idx}/served\",\"value\":true}]"
+          args:
+            executable: /bin/bash
+          register: tlsroute_patch_result
+          changed_when: "'patched' in (tlsroute_patch_result.stdout | default(''))"
+
+        - name: Verify v1alpha2 is now served
+          ansible.builtin.command: >-
+            {{ k3s_kubectl_binary | default('k3s kubectl') }} get crd tlsroutes.gateway.networking.k8s.io
+            -o jsonpath='{range .spec.versions[*]}{.name}{" served="}{.served}{"\n"}{end}'
+          register: tlsroute_verify
+          changed_when: false
+          failed_when: "'v1alpha2 served=true' not in tlsroute_verify.stdout"
+
     - name: Create tmp directory on first master
       ansible.builtin.file:
         path: /tmp/k3s
