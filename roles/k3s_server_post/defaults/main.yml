@@ -19,7 +19,7 @@ cilium_bgp_neighbors: []
 cilium_bgp_neighbors_groups: ['k3s_all']
 cilium_bgp_lb_cidr: 192.168.31.0/24
 cilium_bgp_api_version: v2
-cilium_gateway_crd_versions: v1.4.1 # cilium gateway crd version
+cilium_gateway_crd_versions: v1.5.1 # cilium gateway crd version
 # Helm CLI is installed on the first master only when running Cilium preflight (upgrade path).
 cilium_helm_version: "3.14.4"
 cilium_preflight_rollout_timeout: 600s

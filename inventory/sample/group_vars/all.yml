@@ -33,7 +33,7 @@ cilium_bgp_my_asn: "64513"
 cilium_bgp_peer_asn: "64512"
 cilium_bgp_peer_address: 192.168.30.1
 cilium_bgp_lb_cidr: 192.168.31.0/24 # cidr for cilium loadbalancer ipam
-cilium_gateway_crd_versions: v1.4.1 # cilium gateway crd version
+cilium_gateway_crd_versions: v1.5.1 # cilium gateway crd version
 cilium_bgp_api_version: v2
 kube_proxy_replacement: true
 
