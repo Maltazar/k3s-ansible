@@ -165,6 +165,18 @@
     - kube_vip_enabled | default(true)
     - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
 
+- name: Wait for k3s built-in addons to be deployed before manifest cleanup
+  ansible.builtin.command:
+    cmd: >-
+      {{ k3s_kubectl_binary | default('k3s kubectl') }}
+      get deployment metrics-server -n kube-system -o jsonpath='{.metadata.name}'
+  register: metrics_server_check
+  until: metrics_server_check.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+
 - name: Get contents of manifests folder
   ansible.builtin.find:
     paths: /var/lib/rancher/k3s/server/manifests
