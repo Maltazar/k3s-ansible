@@ -12,7 +12,7 @@
 - name: Deploy metallb pool
   ansible.builtin.include_tasks: metallb.yml
   tags: metallb
-  when: metal_lb_ip_range is defined and kube_vip_lb_ip_range is not defined and (not cilium_bgp or cilium_iface is not defined)
+  when: (metal_lb_ip_range | default('') | length > 0) and kube_vip_lb_ip_range is not defined and (not cilium_bgp or cilium_iface is not defined)
 
 - name: Reconcile kube-vip DaemonSet image if drift from inventory
   ansible.builtin.include_tasks: kube_vip_upgrade.yml
