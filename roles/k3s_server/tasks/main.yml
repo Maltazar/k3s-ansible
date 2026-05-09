@@ -24,6 +24,7 @@
 
 - name: Deploy vip manifest
   ansible.builtin.include_tasks: vip.yml
+  when: kube_vip_enabled | default(true)
 - name: Deploy metallb manifest
   ansible.builtin.include_tasks: metallb.yml
   tags: metallb
@@ -32,7 +33,7 @@
 - name: Deploy kube-vip manifest
   ansible.builtin.include_tasks: kube-vip.yml
   tags: kubevip
-  when: kube_vip_lb_ip_range is defined
+  when: kube_vip_enabled | default(true) and kube_vip_lb_ip_range is defined
 
 - name: Init cluster inside the transient k3s-init service
   ansible.builtin.command:
@@ -160,7 +161,9 @@
   retries: 30
   delay: 5
   changed_when: false
-  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+  when:
+    - kube_vip_enabled | default(true)
+    - ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
 
 - name: Get contents of manifests folder
   ansible.builtin.find:

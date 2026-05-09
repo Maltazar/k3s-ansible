@@ -17,6 +17,7 @@
 - name: Reconcile kube-vip DaemonSet image if drift from inventory
   ansible.builtin.include_tasks: kube_vip_upgrade.yml
   tags: kube_vip_upgrade
+  when: kube_vip_enabled | default(true)
 
 - name: Remove tmp directory used for manifests
   ansible.builtin.file:

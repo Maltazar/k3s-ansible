@@ -5,6 +5,7 @@ k3s_kubectl_binary: k3s kubectl
 
 group_name_master: master
 
+kube_vip_enabled: true
 kube_vip_arp: true
 kube_vip_iface:
 kube_vip_image_repository: ghcr.io/kube-vip/kube-vip

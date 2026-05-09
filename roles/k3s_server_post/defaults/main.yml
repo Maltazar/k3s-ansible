@@ -35,6 +35,7 @@ kube_proxy_replacement: true
 group_name_master: master
 
 # kube-vip day-2 reconcile (see README). Mirrored here so tag-only runs have safe defaults.
+kube_vip_enabled: true
 kube_vip_arp: true
 kube_vip_iface: ""
 kube_vip_bgp: false
