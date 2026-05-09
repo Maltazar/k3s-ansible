@@ -586,6 +586,9 @@
         --helm-set bpf.loadBalancer.algorithm={{ bpf_lb_algorithm }}
         --helm-set bpf.loadBalancer.mode={{ bpf_lb_mode }}
         --helm-set gatewayAPI.enabled=true
+        {% if cilium_gateway_host_network | default(false) | bool %}
+        --helm-set gatewayAPI.hostNetwork.enabled=true
+        {% endif %}
         {% endif %}
         {% if cilium_is_upgrade | default(false) | bool %}
         {% if cilium_upgrade_compatibility_helm is defined %}
