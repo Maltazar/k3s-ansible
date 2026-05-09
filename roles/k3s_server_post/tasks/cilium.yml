@@ -577,6 +577,8 @@
         --helm-set kubeProxyReplacement={{ kube_proxy_replacement }}
         --helm-set bpf.masquerade={{ enable_bpf_masquerade }}
         --helm-set bgpControlPlane.enabled={{ cilium_bgp | default("false") }}
+        --helm-set l2announcements.enabled={{ cilium_l2 | default("false") }}
+        --helm-set externalIPs.enabled={{ cilium_l2 | default("false") }}
         --helm-set hubble.enabled={{ "true" if cilium_hubble else "false" }}
         --helm-set hubble.relay.enabled={{ "true" if cilium_hubble else "false" }}
         --helm-set hubble.ui.enabled={{ "true" if cilium_hubble else "false" }}
@@ -680,3 +682,29 @@
           loop_control:
             label: "{{ item }}"
           when: (cilium_bgp_api_version | default('v2') | trim) == 'v2alpha1'
+
+    - name: Configure Cilium L2 announcements
+      when: cilium_l2 | default(false) | bool
+      block:
+        - name: Copy L2 announcement manifests to first master
+          ansible.builtin.template:
+            src: cilium-l2.crs.j2
+            dest: /tmp/k3s/cilium-l2.yaml
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Apply L2 announcement manifests
+          ansible.builtin.command:
+            cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} apply -f /tmp/k3s/cilium-l2.yaml"
+          register: apply_l2
+          changed_when: "'configured' in apply_l2.stdout or 'created' in apply_l2.stdout"
+
+        - name: Verify L2 announcement resources
+          ansible.builtin.command: "{{ item }}"
+          loop:
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumL2AnnouncementPolicy.cilium.io"
+            - "{{ k3s_kubectl_binary | default('k3s kubectl') }} get CiliumLoadBalancerIPPool.cilium.io"
+          changed_when: false
+          loop_control:
+            label: "{{ item }}"

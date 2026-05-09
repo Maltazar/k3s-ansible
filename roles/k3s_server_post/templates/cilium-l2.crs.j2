@@ -1,0 +1,33 @@
+---
+# Cilium L2 Announcement Policy - announces LoadBalancer IPs via ARP/NDP
+# No BGP or router configuration required.
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: l2-announce-policy
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+{% if cilium_l2_interfaces | default([]) | length > 0 %}
+  interfaces:
+{% for iface in cilium_l2_interfaces %}
+    - {{ iface }}
+{% endfor %}
+{% endif %}
+  externalIPs: true
+  loadBalancerIPs: true
+---
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: l2-lb-pool
+spec:
+  blocks:
+{% if "/" in cilium_l2_ip_range %}
+  - cidr: {{ cilium_l2_ip_range }}
+{% else %}
+  - start: {{ cilium_l2_ip_range.split('-')[0] }}
+    stop: {{ cilium_l2_ip_range.split('-')[1] }}
+{% endif %}
