@@ -569,6 +569,7 @@
             data = json.load(sys.stdin).get('data', {})
             print('enable-l2-announcements=' + data.get('enable-l2-announcements', 'false'))
             print('enable-gateway-api-host-network=' + data.get('enable-gateway-api-host-network', 'false'))
+            print('envoy-keep-cap-netbindservice=' + data.get('envoy-keep-cap-netbindservice', 'false'))
             print('bgp-control-plane-enabled=' + data.get('bgp-control-plane-enabled', 'false'))
             "
           args:
@@ -586,6 +587,8 @@
               or ('enable-l2-announcements=true' in cilium_live_config.stdout and not (cilium_l2 | default(false) | bool))
               or ('enable-gateway-api-host-network=false' in cilium_live_config.stdout and (cilium_gateway_host_network | default(false) | bool))
               or ('enable-gateway-api-host-network=true' in cilium_live_config.stdout and not (cilium_gateway_host_network | default(false) | bool))
+              or ('envoy-keep-cap-netbindservice=false' in cilium_live_config.stdout and (cilium_gateway_host_network | default(false) | bool))
+              or ('envoy-keep-cap-netbindservice=true' in cilium_live_config.stdout and not (cilium_gateway_host_network | default(false) | bool))
               or ('bgp-control-plane-enabled=false' in cilium_live_config.stdout and (cilium_bgp | default(false) | bool))
               or ('bgp-control-plane-enabled=true' in cilium_live_config.stdout and not (cilium_bgp | default(false) | bool))
             )
@@ -622,6 +625,7 @@
         --helm-set gatewayAPI.enabled=true
         {% if cilium_gateway_host_network | default(false) | bool %}
         --helm-set gatewayAPI.hostNetwork.enabled=true
+        --helm-set envoy.securityContext.capabilities.keepCapNetBindService=true
         {% endif %}
         {% endif %}
         {% if cilium_is_upgrade | default(false) | bool %}
