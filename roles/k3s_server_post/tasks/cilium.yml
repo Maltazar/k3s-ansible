@@ -25,12 +25,12 @@
     - name: Deploy Gateway API CRDs experimental
       when: kube_proxy_replacement
       ansible.builtin.command: >-
-        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/experimental-install.yaml
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/experimental-install.yaml
 
     - name: Deploy Gateway API CRDs
       when: kube_proxy_replacement
       ansible.builtin.command: >-
-        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
 
     # Cilium 1.19.x hardcodes gatewayv1alpha2.TLSRoute in its operator; Gateway API v1.5+ ships
     # TLSRoute as v1 and sets v1alpha2 served=false. Patch the CRD so both versions are served,
