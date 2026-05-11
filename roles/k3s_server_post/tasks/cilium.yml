@@ -556,6 +556,40 @@
                   Fix CNP/policy issues per https://docs.cilium.io/en/v1.19/operations/upgrade/#cnp-validation then retry.
                   Error: {{ ansible_failed_result.msg | default('see task output above') }}
 
+    - name: Check Cilium helm config drift
+      when: cilium_present and not (cilium_needs_update | bool)
+      block:
+        - name: Read current Cilium ConfigMap values for drift detection
+          ansible.builtin.shell: |
+            set -euo pipefail
+            K="{{ k3s_kubectl_binary | default('k3s kubectl') }}"
+            cm=$($K -n kube-system get configmap cilium-config -o json 2>/dev/null || echo '{"data":{}}')
+            echo "$cm" | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin).get('data', {})
+            print('enable-l2-announcements=' + data.get('enable-l2-announcements', 'false'))
+            print('enable-gateway-api-host-network=' + data.get('enable-gateway-api-host-network', 'false'))
+            print('bgp-control-plane-enabled=' + data.get('bgp-control-plane-enabled', 'false'))
+            "
+          args:
+            executable: /bin/bash
+          register: cilium_live_config
+          changed_when: false
+          failed_when: false
+
+        - name: Detect config drift and force update if needed
+          ansible.builtin.set_fact:
+            cilium_needs_update: true
+          when: >-
+            cilium_live_config.rc == 0 and (
+              ('enable-l2-announcements=false' in cilium_live_config.stdout and (cilium_l2 | default(false) | bool))
+              or ('enable-l2-announcements=true' in cilium_live_config.stdout and not (cilium_l2 | default(false) | bool))
+              or ('enable-gateway-api-host-network=false' in cilium_live_config.stdout and (cilium_gateway_host_network | default(false) | bool))
+              or ('enable-gateway-api-host-network=true' in cilium_live_config.stdout and not (cilium_gateway_host_network | default(false) | bool))
+              or ('bgp-control-plane-enabled=false' in cilium_live_config.stdout and (cilium_bgp | default(false) | bool))
+              or ('bgp-control-plane-enabled=true' in cilium_live_config.stdout and not (cilium_bgp | default(false) | bool))
+            )
+
     - name: Install or upgrade Cilium
       ansible.builtin.command: >-
         {% if cilium_installed.rc != 0 %}
