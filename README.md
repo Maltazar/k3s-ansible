@@ -179,7 +179,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_neighbors_groups` | list | `['k3s_all']` | Not required | Inventory group in which to search for additional `cilium_bgp_neighbors` parameters to merge. |
 | `k3s_server_post` | `cilium_bgp_lb_cidr` | string | `192.168.31.0/24` | Not required | BGP load balancer IP range |
 | `k3s_server_post` | `cilium_exportPodCIDR` | bool | `true` | Not required | Export pod CIDR |
-| `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 — BGPv1 CRDs are removed in 1.19) |
+| `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 - BGPv1 CRDs are removed in 1.19) |
 | `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.4.1` | Not required | Gateway API CRD bundle version applied before Cilium when kube-proxy replacement is enabled |
 | `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
 | `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble |
@@ -213,7 +213,7 @@ When `cilium_iface` is set, the first master compares the **running** Cilium ima
 
 Only **one minor version step** per upgrade is allowed (for example 1.18.x → 1.19.x). Cilium recommends moving to the [latest patch on your current minor](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-1-upgrade-to-latest-patch-version) before jumping to the next minor; this role does not enforce that automatically.
 
-For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha1`, if any `CiliumBGPPeeringPolicy` CR exists, or if any `CiliumLoadBalancerIPPool` is still stored as `cilium.io/v2alpha1` — see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
+For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha1`, if any `CiliumBGPPeeringPolicy` CR exists, or if any `CiliumLoadBalancerIPPool` is still stored as `cilium.io/v2alpha1` - see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
 
 **Air-gapped clusters:** Cilium CLI, Helm (on upgrade), and `helm template oci://quay.io/...` need outbound access or local mirrors of those artifacts.
 
