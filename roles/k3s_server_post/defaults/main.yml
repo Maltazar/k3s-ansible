@@ -28,7 +28,7 @@ cilium_helm_version: "3.14.4"
 cilium_preflight_rollout_timeout: 600s
 # If set (e.g. "1.12"), passed as Helm upgradeCompatibility on upgrade instead of deriving from the running image.
 cilium_upgrade_compatibility_override: ""
-cilium_tag: v1.19.3
+cilium_tag: v1.19.4
 cilium_hubble: true
 cilium_mode: native
 cilium_gateway_host_network: false
