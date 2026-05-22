@@ -615,22 +615,20 @@
         --helm-set bpf.masquerade={{ enable_bpf_masquerade }}
         --helm-set bgpControlPlane.enabled={{ cilium_bgp | default("false") }}
         --helm-set l2announcements.enabled={{ cilium_l2 | default("false") }}
-        --helm-set externalIPs.enabled={{ cilium_l2 | default("false") }}
         --helm-set hubble.enabled={{ "true" if cilium_hubble else "false" }}
         --helm-set hubble.relay.enabled={{ "true" if cilium_hubble else "false" }}
         --helm-set hubble.ui.enabled={{ "true" if cilium_hubble else "false" }}
         {% if cilium_hubble %}
-        --helm-set hubble.policyVerdicts=all
-        --helm-set monitorAggregation=none
+        --helm-set bpf.events.policyVerdict.enabled=true
+        --helm-set bpf.monitorAggregation=none
         {% if cilium_hubble_metrics | default([]) | length > 0 %}
         --helm-set "hubble.metrics.enabled={%- for m in cilium_hubble_metrics -%}{{ m }}{{ "," if not loop.last else "" }}{%- endfor -%}"
         {% endif %}
         {% endif %}
         {% if kube_proxy_replacement is not false %}
-        --helm-set bpf.loadBalancer.algorithm={{ bpf_lb_algorithm }}
-        --helm-set bpf.loadBalancer.mode={{ bpf_lb_mode }}
+        --helm-set loadBalancer.algorithm={{ bpf_lb_algorithm }}
+        --helm-set loadBalancer.mode={{ bpf_lb_mode }}
         --helm-set gatewayAPI.enabled=true
-        --helm-set envoy.accessLog.enabled=true
         {% if cilium_gateway_host_network | default(false) | bool %}
         --helm-set gatewayAPI.hostNetwork.enabled=true
         --helm-set envoy.securityContext.capabilities.keepCapNetBindService=true
