@@ -183,6 +183,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.4.1` | Not required | Gateway API CRD bundle version applied before Cilium when kube-proxy replacement is enabled |
 | `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
 | `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble |
+| `k3s_server_post` | `cilium_hubble_metrics` | list | `[]` | Not required | Hubble metrics to export (e.g. `[dns, drop, tcp, flow, icmp, http]`). Empty list disables metrics |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
 | `k3s_server_post` | `cilium_tag` | string | `v1.19.2` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |

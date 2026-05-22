@@ -622,6 +622,9 @@
         {% if cilium_hubble %}
         --helm-set hubble.policyVerdicts=all
         --helm-set monitorAggregation=none
+        {% if cilium_hubble_metrics | default([]) | length > 0 %}
+        --helm-set "hubble.metrics.enabled={%- for m in cilium_hubble_metrics -%}{{ m }}{{ "," if not loop.last else "" }}{%- endfor -%}"
+        {% endif %}
         {% endif %}
         {% if kube_proxy_replacement is not false %}
         --helm-set bpf.loadBalancer.algorithm={{ bpf_lb_algorithm }}

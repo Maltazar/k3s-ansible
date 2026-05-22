@@ -30,6 +30,7 @@ cilium_preflight_rollout_timeout: 600s
 cilium_upgrade_compatibility_override: ""
 cilium_tag: v1.19.4
 cilium_hubble: true
+cilium_hubble_metrics: []
 cilium_mode: native
 cilium_gateway_host_network: false
 

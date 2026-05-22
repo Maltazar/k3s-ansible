@@ -88,6 +88,13 @@ argument_specs:
         type: bool
         default: true
 
+      cilium_hubble_metrics:
+        description: >-
+          List of Hubble metrics to enable (e.g. dns, drop, tcp, flow, icmp, http, port-distribution).
+          Empty list disables metrics export.
+        type: list
+        default: []
+
       cilium_iface:
         description: The network interface used for when Cilium is enabled
         default: ~
