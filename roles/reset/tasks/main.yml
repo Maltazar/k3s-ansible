@@ -10,11 +10,26 @@
     - k3s-node
     - k3s-init
 
+- name: Run k3s-killall.sh if present
+  ansible.builtin.shell: /usr/local/bin/k3s-killall.sh
+  failed_when: false
+  changed_when: true
+
 - name: RUN pkill -9 -f "k3s/data/[^/]+/bin/containerd-shim-runc"
   register: pkill_containerd_shim_runc
   ansible.builtin.command: pkill -9 -f "k3s/data/[^/]+/bin/containerd-shim-runc"
   changed_when: pkill_containerd_shim_runc.rc == 0
   failed_when: false
+
+- name: Kill all remaining k3s processes
+  register: pkill_k3s
+  ansible.builtin.command: pkill -9 -f "/usr/local/bin/k3s"
+  changed_when: pkill_k3s.rc == 0
+  failed_when: false
+
+- name: Wait for processes to terminate
+  ansible.builtin.pause:
+    seconds: 5
 
 - name: Umount k3s filesystems
   ansible.builtin.include_tasks: umount_with_children.yml
@@ -46,6 +61,25 @@
     - /var/lib/rancher/
     - /var/lib/cni/
     - /etc/cni/net.d
+
+- name: Remove k3s uninstall scripts
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - /usr/local/bin/k3s-killall.sh
+    - /usr/local/bin/k3s-uninstall.sh
+    - /usr/local/bin/k3s-agent-uninstall.sh
+
+- name: Verify k3s data directory is removed
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s
+  register: k3s_data_dir
+
+- name: Fail if k3s data directory still exists
+  ansible.builtin.fail:
+    msg: "/var/lib/rancher/k3s still exists — likely due to active mounts. Check 'mount | grep k3s' on this node."
+  when: k3s_data_dir.stat.exists
 
 - name: Remove K3s http_proxy files
   ansible.builtin.file:
