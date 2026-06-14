@@ -556,6 +556,28 @@
                   Fix CNP/policy issues per https://docs.cilium.io/en/v1.19/operations/upgrade/#cnp-validation then retry.
                   Error: {{ ansible_failed_result.msg | default('see task output above') }}
 
+    - name: Set effective Cilium Hubble BPF tuning values
+      ansible.builtin.set_fact:
+        _cilium_policy_verdict_enabled: "{{ cilium_hubble_policy_verdict | default(true) | bool }}"
+        _cilium_monitor_aggregation: >-
+          {{
+            cilium_bpf_monitor_aggregation | default(
+              'none' if (cilium_hubble_policy_verdict | default(true) | bool) else 'medium'
+            )
+          }}
+      when: cilium_hubble | default(true) | bool
+
+    - name: Validate cilium_bpf_monitor_aggregation
+      ansible.builtin.assert:
+        that:
+          - >-
+            cilium_bpf_monitor_aggregation | default('') | length == 0
+            or cilium_bpf_monitor_aggregation in ['none', 'low', 'medium', 'maximum']
+        fail_msg: >-
+          cilium_bpf_monitor_aggregation must be one of none, low, medium, maximum
+          (got {{ cilium_bpf_monitor_aggregation | default('') }}).
+      when: cilium_hubble | default(true) | bool
+
     - name: Check Cilium helm config drift
       when: cilium_present and not (cilium_needs_update | bool)
       block:
@@ -571,12 +593,45 @@
             print('enable-gateway-api-host-network=' + data.get('enable-gateway-api-host-network', 'false'))
             print('envoy-keep-cap-netbindservice=' + data.get('envoy-keep-cap-netbindservice', 'false'))
             print('bgp-control-plane-enabled=' + data.get('bgp-control-plane-enabled', 'false'))
+            print('bpf-events-policy-verdict-enabled=' + data.get('bpf-events-policy-verdict-enabled', 'false'))
+            print('monitor-aggregation=' + data.get('monitor-aggregation', 'medium'))
             "
           args:
             executable: /bin/bash
           register: cilium_live_config
           changed_when: false
           failed_when: false
+
+        - name: Read live cilium-envoy DoesNotExist node label keys
+          when: kube_proxy_replacement is not false
+          ansible.builtin.shell: |
+            set -euo pipefail
+            K="{{ k3s_kubectl_binary | default('k3s kubectl') }}"
+            ds=$($K -n kube-system get ds cilium-envoy -o json 2>/dev/null || echo '{}')
+            echo "$ds" | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            affinity = data.get('spec', {}).get('template', {}).get('spec', {}).get('affinity') or {}
+            terms = (
+                (affinity.get('nodeAffinity') or {})
+                .get('requiredDuringSchedulingIgnoredDuringExecution') or {}
+            ).get('nodeSelectorTerms') or [{}]
+            keys = set()
+            for term in terms:
+                for expr in term.get('matchExpressions', []):
+                    if expr.get('operator') == 'DoesNotExist' and expr.get('key'):
+                        keys.add(expr['key'])
+            print('envoy-doesnotexist-keys=' + ','.join(sorted(keys)))
+            "
+          args:
+            executable: /bin/bash
+          register: cilium_envoy_affinity_live
+          changed_when: false
+          failed_when: false
+
+        - name: Set expected cilium-envoy exclude label keys for drift detection
+          ansible.builtin.set_fact:
+            _cilium_envoy_exclude_keys_sorted: "{{ cilium_envoy_exclude_node_labels.keys() | list | sort | join(',') }}"
 
         - name: Detect config drift and force update if needed
           ansible.builtin.set_fact:
@@ -591,6 +646,23 @@
               or ('envoy-keep-cap-netbindservice=true' in cilium_live_config.stdout and not (cilium_gateway_host_network | default(false) | bool))
               or ('bgp-control-plane-enabled=false' in cilium_live_config.stdout and (cilium_bgp | default(false) | bool))
               or ('bgp-control-plane-enabled=true' in cilium_live_config.stdout and not (cilium_bgp | default(false) | bool))
+              or (
+                (cilium_hubble | default(true) | bool)
+                and (
+                  ('bpf-events-policy-verdict-enabled=false' in cilium_live_config.stdout and (_cilium_policy_verdict_enabled | default(true) | bool))
+                  or ('bpf-events-policy-verdict-enabled=true' in cilium_live_config.stdout and not (_cilium_policy_verdict_enabled | default(true) | bool))
+                  or not ('monitor-aggregation=' + (_cilium_monitor_aggregation | default('medium')) in cilium_live_config.stdout)
+                )
+              )
+              or (
+                kube_proxy_replacement is not false
+                and cilium_envoy_affinity_live is defined
+                and cilium_envoy_affinity_live.rc == 0
+                and not (
+                  'envoy-doesnotexist-keys=' + (_cilium_envoy_exclude_keys_sorted | default(''))
+                  in cilium_envoy_affinity_live.stdout
+                )
+              )
             )
 
     - name: Install or upgrade Cilium
@@ -619,8 +691,13 @@
         --helm-set hubble.relay.enabled={{ "true" if cilium_hubble else "false" }}
         --helm-set hubble.ui.enabled={{ "true" if cilium_hubble else "false" }}
         {% if cilium_hubble %}
+        {% if cilium_hubble_policy_verdict | default(true) | bool %}
         --helm-set bpf.events.policyVerdict.enabled=true
-        --helm-set bpf.monitorAggregation=none
+        --helm-set bpf.monitorAggregation={{ cilium_bpf_monitor_aggregation | default('none') }}
+        {% else %}
+        --helm-set bpf.events.policyVerdict.enabled=false
+        --helm-set bpf.monitorAggregation={{ cilium_bpf_monitor_aggregation | default('medium') }}
+        {% endif %}
         {% if cilium_hubble_metrics | default([]) | length > 0 %}
         --helm-set "hubble.metrics.enabled={%- for m in cilium_hubble_metrics -%}{{ m }}{{ "," if not loop.last else "" }}{%- endfor -%}"
         {% endif %}
@@ -634,6 +711,10 @@
         --helm-set envoy.securityContext.capabilities.keepCapNetBindService=true
         --helm-set "envoy.securityContext.capabilities.envoy={NET_ADMIN,SYS_ADMIN,NET_BIND_SERVICE}"
         {% endif %}
+        {% for _envoy_label in cilium_envoy_exclude_node_labels.keys() %}
+        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index }}].key={{ _envoy_label }}
+        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index }}].operator=DoesNotExist
+        {% endfor %}
         {% endif %}
         {% if cilium_is_upgrade | default(false) | bool %}
         {% if cilium_upgrade_compatibility_helm is defined %}

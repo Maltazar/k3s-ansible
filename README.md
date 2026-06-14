@@ -182,8 +182,11 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 - BGPv1 CRDs are removed in 1.19) |
 | `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.4.1` | Not required | Gateway API CRD bundle version applied before Cilium when kube-proxy replacement is enabled |
 | `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
-| `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble |
+| `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble relay and UI |
 | `k3s_server_post` | `cilium_hubble_metrics` | list | `[]` | Not required | Hubble metrics to export (e.g. `[dns, drop, tcp, flow, icmp, http]`). Empty list disables metrics |
+| `k3s_server_post` | `cilium_hubble_policy_verdict` | bool | `true` | Not required | When Hubble is enabled, controls BPF policy-verdict events (`bpf.events.policyVerdict.enabled`). Set `false` for UI-only Hubble with lower agent CPU at idle |
+| `k3s_server_post` | `cilium_bpf_monitor_aggregation` | string | `none` if policy verdict enabled, else `medium` | Not required | BPF monitor aggregation level (`none`, `low`, `medium`, `maximum`) |
+| `k3s_server_post` | `cilium_envoy_exclude_node_labels` | dict | `{}` | Not required | Exclude nodes from the `cilium-envoy` DaemonSet: each key adds a `DoesNotExist` nodeAffinity rule (label value is ignored) |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
 | `k3s_server_post` | `cilium_tag` | string | `v1.19.2` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
@@ -208,7 +211,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 When `cilium_iface` is set, the first master compares the **running** Cilium image to `cilium_tag`:
 
 - **Fresh cluster:** `cilium install` (no preflight, no `upgradeCompatibility`).
-- **Version matches:** skips install/upgrade; BGP manifests are still applied idempotently when `cilium_bgp` is true.
+- **Version matches:** skips install/upgrade unless **config drift** is detected (L2 announcements, Gateway API host network, BGP control plane, Hubble BPF tuning, or `cilium-envoy` node exclusions vs inventory). BGP manifests are still applied idempotently when `cilium_bgp` is true.
 - **Version differs, same major.minor as target (patch-only):** runs `cilium upgrade` to the target tag **without** Helm preflight or `upgradeCompatibility` (for example cluster `1.19.1` and inventory `v1.19.2`).
 - **Version differs across major.minor vs target:** runs Cilium [preflight](https://docs.cilium.io/en/v1.19/operations/upgrade/#running-pre-flight-check-required) from the Helm chart matching the **target** `cilium_tag` (including `k8sServiceHost` / `k8sServicePort` when kube-proxy replacement is enabled), removes preflight objects, then `cilium upgrade` with `--helm-set upgradeCompatibility=<running major.minor>` to match the [upgrade guide](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-2-use-helm-to-upgrade-your-cilium-deployment). If the cluster was first installed on an older minor than what is running now, you can set `cilium_upgrade_compatibility_override` (e.g. `1.12`) instead of relying on the derived value.
 
@@ -221,6 +224,10 @@ For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha
 **Architecture:** The role only installs **linux-amd64** or **linux-arm64** Cilium CLI and Helm on the first master (`x86_64` / `aarch64`). Other `ansible_architecture` values (for example `armv7l`) fail fast.
 
 The role’s `--helm-set` options align with current Cilium Helm values; if you use a very old `cilium_tag`, confirm options against that release’s chart.
+
+**Hubble CPU tuning:** With `cilium_hubble: true`, the role sets BPF policy-verdict and monitor-aggregation Helm values. For Hubble UI without per-packet policy-verdict overhead, set `cilium_hubble_policy_verdict: false` and optionally `cilium_bpf_monitor_aggregation: medium`. Verify with `cilium config view | grep bpf-events-policy-verdict-enabled`.
+
+**cilium-envoy node exclusions:** When `kube_proxy_replacement` is enabled, Gateway API schedules `cilium-envoy` on every node by default. Use `cilium_envoy_exclude_node_labels` to keep envoy off labeled nodes (e.g. storage-only workers). If node labels are applied **after** the first playbook run, re-run with `--tags cilium` (or `cilium upgrade` with the same Helm values) so the DaemonSet reconciles and evicts envoy from excluded nodes.
 
 ### Troubleshooting
 

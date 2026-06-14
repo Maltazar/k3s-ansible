@@ -29,6 +29,15 @@ cilium_hubble: true # enable hubble observability relay and ui
 #   - icmp
 #   - http
 
+# Hubble UI without BPF policy-verdict overhead (homelab recommended):
+# cilium_hubble: true
+# cilium_hubble_policy_verdict: false
+# cilium_bpf_monitor_aggregation: medium
+
+# Keep cilium-envoy off storage-only nodes (re-run --tags cilium after labeling nodes):
+# cilium_envoy_exclude_node_labels:
+#   storage_only: true
+
 # bind gateway API proxy directly to node ports 80/443 (useful for single-node without LB)
 # cilium_gateway_host_network: true
 
