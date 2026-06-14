@@ -712,8 +712,8 @@
         --helm-set "envoy.securityContext.capabilities.envoy={NET_ADMIN,SYS_ADMIN,NET_BIND_SERVICE}"
         {% endif %}
         {% for _envoy_label in cilium_envoy_exclude_node_labels.keys() %}
-        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index }}].key={{ _envoy_label }}
-        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index }}].operator=DoesNotExist
+        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index0 }}].key={{ _envoy_label }}
+        --helm-set envoy.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[{{ loop.index0 }}].operator=DoesNotExist
         {% endfor %}
         {% endif %}
         {% if cilium_is_upgrade | default(false) | bool %}
