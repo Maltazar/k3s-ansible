@@ -12,7 +12,8 @@ ExecStart=/usr/local/bin/k3s agent \
   --server https://{{ apiserver_endpoint | ansible.utils.ipwrap }}:6443 \
   {% if is_pxe_booted | default(false) %}--snapshotter native \
   {% endif %}--token {{ hostvars[groups[group_name_master | default('master')][0]]['token'] | default(k3s_token) }} \
-  {{ extra_agent_args }}
+  {# extra_agent_args from inventory YAML (>/-) often contains newlines; systemd ignores args after an unescaped line break #}
+  {{ extra_agent_args | trim | regex_replace('\s*\n+\s*', ' ') }}
 KillMode=process
 Delegate=yes
 LimitNOFILE=1048576
