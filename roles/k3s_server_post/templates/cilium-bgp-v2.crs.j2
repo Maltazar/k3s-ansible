@@ -6,7 +6,12 @@ kind: CiliumBGPClusterConfig
 metadata:
   name: 01-bgp-cluster-config
 spec:
+{% if _cilium_bgp_cluster_node_selector | default({}) | length > 0 %}
+  nodeSelector:
+{{ _cilium_bgp_cluster_node_selector | to_nice_yaml(indent=2) | indent(4, first=True) }}
+{% else %}
   nodeSelector: {}
+{% endif %}
   bgpInstances:
     - name: bgp-instance
       localASN: {{ cilium_bgp_my_asn }}

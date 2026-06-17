@@ -762,6 +762,9 @@
           ansible.builtin.set_fact:
             _cilium_bgp_neighbors: "{{ lookup('community.general.merge_variables', '^cilium_bgp_neighbors__.+$', initial_value=cilium_bgp_neighbors, groups=cilium_bgp_neighbors_groups) }}"  # yamllint disable-line rule:line-length
 
+        - name: Derive CiliumBGPClusterConfig nodeSelector from inventory
+          ansible.builtin.include_tasks: cilium_bgp_node_selector.yml
+
         - name: Debug BGP API version
           ansible.builtin.debug:
             msg: "cilium_bgp_api_version is set to: '{{ cilium_bgp_api_version | default('NOT SET') }}'"

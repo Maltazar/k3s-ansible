@@ -186,7 +186,8 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_hubble_metrics` | list | `[]` | Not required | Hubble metrics to export (e.g. `[dns, drop, tcp, flow, icmp, http]`). Empty list disables metrics |
 | `k3s_server_post` | `cilium_hubble_policy_verdict` | bool | `true` | Not required | When Hubble is enabled, controls BPF policy-verdict events (`bpf.events.policyVerdict.enabled`). Set `false` for UI-only Hubble with lower agent CPU at idle |
 | `k3s_server_post` | `cilium_bpf_monitor_aggregation` | string | `none` if policy verdict enabled, else `medium` | Not required | BPF monitor aggregation level (`none`, `low`, `medium`, `maximum`) |
-| `k3s_server_post` | `cilium_envoy_exclude_node_labels` | dict | `{}` | Not required | Exclude nodes from the `cilium-envoy` DaemonSet: each key adds a `DoesNotExist` nodeAffinity rule (label value is ignored) |
+| `k3s_server_post` | `cilium_envoy_exclude_node_labels` | dict | `{}` | Not required | Exclude nodes from the `cilium-envoy` DaemonSet: each key adds a `DoesNotExist` nodeAffinity rule (label value is ignored). When BGP is enabled, the same keys also populate `CiliumBGPClusterConfig` `nodeSelector` (`NotIn` per key/value) unless `cilium_bgp_node_selector` is set. |
+| `k3s_server_post` | `cilium_bgp_node_selector` | dict | `{}` | Not required | Optional full Kubernetes label selector for `CiliumBGPClusterConfig` `spec.nodeSelector`. Overrides envoy-derived exclusion when non-empty. |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
 | `k3s_server_post` | `cilium_tag` | string | `v1.19.5` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
@@ -227,7 +228,7 @@ The role’s `--helm-set` options align with current Cilium Helm values; if you 
 
 **Hubble CPU tuning:** With `cilium_hubble: true`, the role sets BPF policy-verdict and monitor-aggregation Helm values. For Hubble UI without per-packet policy-verdict overhead, set `cilium_hubble_policy_verdict: false` and optionally `cilium_bpf_monitor_aggregation: medium`. Verify with `cilium config view | grep bpf-events-policy-verdict-enabled`.
 
-**cilium-envoy node exclusions:** When `kube_proxy_replacement` is enabled, Gateway API schedules `cilium-envoy` on every node by default. Use `cilium_envoy_exclude_node_labels` to keep envoy off labeled nodes (e.g. storage-only workers). If node labels are applied **after** the first playbook run, re-run with `--tags cilium` (or `cilium upgrade` with the same Helm values) so the DaemonSet reconciles and evicts envoy from excluded nodes.
+**cilium-envoy node exclusions:** When `kube_proxy_replacement` is enabled, Gateway API schedules `cilium-envoy` on every node by default. Use `cilium_envoy_exclude_node_labels` to keep envoy off labeled nodes (e.g. storage-only workers). If node labels are applied **after** the first playbook run, re-run with `--tags cilium` (or `cilium upgrade` with the same Helm values) so the DaemonSet reconciles and evicts envoy from excluded nodes. With `cilium_bgp: true`, the same inventory keys also exclude those nodes from the BGP control plane (`CiliumBGPClusterConfig` `nodeSelector`), so storage nodes do not advertise Gateway LoadBalancer VIPs. Set `cilium_bgp_node_selector` to override with a custom selector.
 
 ### Troubleshooting
 

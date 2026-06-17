@@ -37,6 +37,7 @@ cilium_hubble_policy_verdict: true
 # Keep cilium-envoy off storage-only nodes (re-run --tags cilium after labeling nodes):
 # cilium_envoy_exclude_node_labels:
 #   storage_only: true
+# BGP control plane uses the same exclusion for CiliumBGPClusterConfig nodeSelector (see cilium-bgp-v2.crs.j2).
 
 # bind gateway API proxy directly to node ports 80/443 (useful for single-node without LB)
 # cilium_gateway_host_network: true

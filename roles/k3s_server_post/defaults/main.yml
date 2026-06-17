@@ -37,6 +37,9 @@ cilium_hubble_policy_verdict: true
 # cilium_bpf_monitor_aggregation: medium
 # Exclude nodes from cilium-envoy DaemonSet (Gateway API). Each key adds a DoesNotExist nodeAffinity rule.
 cilium_envoy_exclude_node_labels: {}
+# Optional full Kubernetes label selector for CiliumBGPClusterConfig spec.nodeSelector.
+# When unset/empty, derived from cilium_envoy_exclude_node_labels (NotIn per key/value) when BGP is enabled.
+# cilium_bgp_node_selector: {}
 cilium_mode: native
 cilium_gateway_host_network: false
 
