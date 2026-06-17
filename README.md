@@ -150,7 +150,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server` | `kube_vip_bgp_peers` | list | `[]` | Not required | List of BGP peer ASN & address pairs |
 | `k3s_server` | `kube_vip_bgp_peers_groups` | list | `['k3s_master']` | Not required | Inventory group in which to search for additional `kube_vip_bgp_peers` parameters to merge. |
 | `k3s_server` | `kube_vip_iface` | string | `~` | Not required | Explicitly define an interface that ALL control nodes should use to propagate the VIP, define it here. Otherwise, kube-vip will determine the right interface automatically at runtime. |
-| `k3s_server` | `kube_vip_tag_version` | string | `v1.1.2` | Not required | Image tag for kube-vip |
+| `k3s_server` | `kube_vip_tag_version` | string | `v1.2.0` | Not required | Image tag for kube-vip |
 | `k3s_server` | `kube_vip_image_repository` | string | `ghcr.io/kube-vip/kube-vip` | Not required | Image repository (without tag) for kube-vip |
 | `k3s_server` | `kube_vip_image_pull_policy` | string | `IfNotPresent` | Not required | DaemonSet `imagePullPolicy` (e.g. `Always` to always pull) |
 | `k3s_server` | `kube_vip_rbac_manifest_url` | string | `""` | Not required | When empty, use bundled `roles/k3s_server/files/kube-vip-rbac.yaml`; otherwise download this URL |
@@ -189,7 +189,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_envoy_exclude_node_labels` | dict | `{}` | Not required | Exclude nodes from the `cilium-envoy` DaemonSet: each key adds a `DoesNotExist` nodeAffinity rule (label value is ignored) |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
-| `k3s_server_post` | `cilium_tag` | string | `v1.19.2` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
+| `k3s_server_post` | `cilium_tag` | string | `v1.19.5` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
 | `k3s_server_post` | `cilium_upgrade_compatibility_override` | string | `""` | Not required | Optional `major.minor` for Helm `upgradeCompatibility` on upgrade; when empty, derived from the running Cilium image |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |

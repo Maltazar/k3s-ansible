@@ -1,5 +1,6 @@
 ---
-k3s_version: v1.35.0+k3s1
+# Next step when ready: k3s_version v1.36.1+k3s1 + cilium_tag v1.20.0 (after Cilium 1.20 stable)
+k3s_version: v1.35.5+k3s1
 # this is the user that has ssh access to these machines
 ansible_user: ansibleuser
 systemd_dir: /etc/systemd/system
@@ -19,7 +20,7 @@ calico_tag: v3.31.0 # calico version tag
 # ensure v4.19.57, v5.1.16, v5.2.0 or more recent kernel
 cilium_iface: "{{ ansible_facts.default_ipv4.interface | default( 'eth0' ) }}"
 cilium_mode: native # native when nodes on same subnet or using bgp, else set tunnel
-cilium_tag: v1.19.4 # cilium version tag
+cilium_tag: v1.19.5 # cilium version tag (latest 1.19 patch for k8s 1.35)
 cilium_hubble: true # enable hubble observability relay and ui
 # cilium_hubble_metrics:  # opt-in list of hubble metrics to export
 #   - dns
@@ -126,7 +127,7 @@ extra_agent_args: >-
   {{ extra_args }}
 
 # image tag for kube-vip (use older tags e.g. v0.8.2 if required)
-kube_vip_tag_version: v1.1.2
+kube_vip_tag_version: v1.2.0
 
 # tag for kube-vip-cloud-provider manifest (when kube_vip_lb_ip_range is set)
 # kube_vip_cloud_provider_tag_version: v0.0.12

@@ -28,7 +28,7 @@ cilium_helm_version: "3.14.4"
 cilium_preflight_rollout_timeout: 600s
 # If set (e.g. "1.12"), passed as Helm upgradeCompatibility on upgrade instead of deriving from the running image.
 cilium_upgrade_compatibility_override: ""
-cilium_tag: v1.19.4
+cilium_tag: v1.19.5
 cilium_hubble: true
 cilium_hubble_metrics: []
 # When cilium_hubble is true, enables bpf.events.policyVerdict (expensive at idle with many policies).
@@ -54,7 +54,7 @@ kube_vip_bgp_routerid: 127.0.0.1
 kube_vip_bgp_as: "64513"
 kube_vip_bgp_peeraddress: 192.168.30.1
 kube_vip_bgp_peeras: "64512"
-kube_vip_tag_version: v1.1.2
+kube_vip_tag_version: v1.2.0
 kube_vip_image_repository: ghcr.io/kube-vip/kube-vip
 kube_vip_image_pull_policy: IfNotPresent
 kube_vip_bgp_peers: []

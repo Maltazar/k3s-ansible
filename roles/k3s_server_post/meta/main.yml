@@ -130,7 +130,7 @@ argument_specs:
 
       kube_vip_tag_version:
         description: kube-vip image tag (day-2 reconcile compares cluster DaemonSet to this).
-        default: v1.1.2
+        default: v1.2.0
 
       kube_vip_image_repository:
         description: kube-vip image repository without tag.

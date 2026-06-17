@@ -17,7 +17,7 @@ kube_vip_apply_rbac_on_reconcile: true
 kube_vip_cloud_provider_tag_version: v0.0.12
 # Optional full URL override; default builds from tag below.
 kube_vip_cloud_provider_manifest_url: ""
-kube_vip_tag_version: v1.1.2
+kube_vip_tag_version: v1.2.0
 
 kube_vip_bgp: false
 kube_vip_bgp_routerid: 127.0.0.1
