@@ -1,5 +1,5 @@
 ---
-- name: Build BGP nodeSelector matchExpressions from envoy exclude labels
+- name: Build BGP nodeSelector matchExpressions from cilium_bgp_exclude_node_labels
   ansible.builtin.set_fact:
     _cilium_bgp_exclude_exprs: "{{ _cilium_bgp_exclude_exprs | default([]) + [_bgp_expr_item] }}"
   vars:
@@ -8,10 +8,10 @@
       operator: NotIn
       values:
         - "{{ item.value | string | lower }}"
-  loop: "{{ cilium_envoy_exclude_node_labels | dict2items }}"
+  loop: "{{ cilium_bgp_exclude_node_labels | dict2items }}"
   when:
     - (cilium_bgp_node_selector | default({}) | length) == 0
-    - cilium_envoy_exclude_node_labels | default({}) | length > 0
+    - cilium_bgp_exclude_node_labels | default({}) | length > 0
 
 - name: Set effective BGP cluster nodeSelector for BGP manifest template
   ansible.builtin.set_fact:

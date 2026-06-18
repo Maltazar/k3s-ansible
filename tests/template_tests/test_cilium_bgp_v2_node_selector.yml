@@ -1,6 +1,6 @@
 ---
 # Renders cilium-bgp-v2.crs.j2 with the same nodeSelector logic as k3s_server_post.
-- name: Template test - envoy exclude derives BGP nodeSelector
+- name: Template test - envoy exclude does not change BGP nodeSelector
   hosts: localhost
   connection: local
   gather_facts: false
@@ -13,6 +13,7 @@
     cilium_exportPodCIDR: "true"
     cilium_envoy_exclude_node_labels:
       storage_only: "true"
+    cilium_bgp_exclude_node_labels: {}
   tasks:
     - name: Reset BGP nodeSelector facts from prior test play
       ansible.builtin.set_fact:
@@ -22,10 +23,46 @@
     - name: Derive CiliumBGPClusterConfig nodeSelector from inventory
       ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_bgp_node_selector.yml
 
-    - name: Render cilium-bgp-v2.crs.j2 with envoy exclude labels
+    - name: Render cilium-bgp-v2.crs.j2 with envoy exclude only
       ansible.builtin.template:
         src: ../../roles/k3s_server_post/templates/cilium-bgp-v2.crs.j2
-        dest: "{{ playbook_dir }}/.output/envoy-exclude.yaml"
+        dest: "{{ playbook_dir }}/.output/envoy-only-exclude.yaml"
+
+    - name: Assert envoy exclude alone leaves BGP nodeSelector empty
+      ansible.builtin.assert:
+        that:
+          - "'nodeSelector: {}' in rendered"
+          - rendered is not search('storage_only')
+        fail_msg: "Expected empty BGP nodeSelector when only envoy exclude is set, got: {{ rendered }}"
+      vars:
+        rendered: "{{ lookup('file', playbook_dir + '/.output/envoy-only-exclude.yaml') }}"
+
+- name: Template test - cilium_bgp_exclude_node_labels derives BGP nodeSelector
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_bgp_my_asn: "64513"
+    cilium_bgp_peer_address: "172.16.40.1"
+    cilium_bgp_peer_asn: "64512"
+    _cilium_bgp_neighbors: []
+    cilium_bgp_lb_cidr: "172.16.40.100-172.16.40.120"
+    cilium_exportPodCIDR: "true"
+    cilium_bgp_exclude_node_labels:
+      storage_only: "true"
+  tasks:
+    - name: Reset BGP nodeSelector facts from prior test play
+      ansible.builtin.set_fact:
+        _cilium_bgp_exclude_exprs: []
+        _cilium_bgp_cluster_node_selector: {}
+
+    - name: Derive CiliumBGPClusterConfig nodeSelector from inventory
+      ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_bgp_node_selector.yml
+
+    - name: Render cilium-bgp-v2.crs.j2 with BGP exclude labels
+      ansible.builtin.template:
+        src: ../../roles/k3s_server_post/templates/cilium-bgp-v2.crs.j2
+        dest: "{{ playbook_dir }}/.output/bgp-exclude.yaml"
 
     - name: Assert rendered BGP cluster config excludes storage_only nodes
       ansible.builtin.assert:
@@ -35,7 +72,7 @@
           - "'nodeSelector: {}' not in rendered"
         fail_msg: "Expected nodeSelector with storage_only NotIn, got: {{ rendered }}"
       vars:
-        rendered: "{{ lookup('file', playbook_dir + '/.output/envoy-exclude.yaml') }}"
+        rendered: "{{ lookup('file', playbook_dir + '/.output/bgp-exclude.yaml') }}"
 
 - name: Template test - empty nodeSelector without exclusions
   hosts: localhost
@@ -49,6 +86,7 @@
     cilium_bgp_lb_cidr: "172.16.40.100-172.16.40.120"
     cilium_exportPodCIDR: "true"
     cilium_envoy_exclude_node_labels: {}
+    cilium_bgp_exclude_node_labels: {}
   tasks:
     - name: Reset BGP nodeSelector facts from prior test play
       ansible.builtin.set_fact:
@@ -82,7 +120,7 @@
     _cilium_bgp_neighbors: []
     cilium_bgp_lb_cidr: "172.16.40.100-172.16.40.120"
     cilium_exportPodCIDR: "true"
-    cilium_envoy_exclude_node_labels:
+    cilium_bgp_exclude_node_labels:
       storage_only: "true"
     cilium_bgp_node_selector:
       matchLabels:
@@ -101,7 +139,7 @@
         src: ../../roles/k3s_server_post/templates/cilium-bgp-v2.crs.j2
         dest: "{{ playbook_dir }}/.output/override.yaml"
 
-    - name: Assert override nodeSelector is used instead of envoy exclude derivation
+    - name: Assert override nodeSelector is used instead of BGP exclude derivation
       ansible.builtin.assert:
         that:
           - rendered is search('node-role.kubernetes.io/control-plane')
