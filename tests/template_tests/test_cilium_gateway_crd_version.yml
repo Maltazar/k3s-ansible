@@ -1,0 +1,102 @@
+---
+# Unit tests for cilium_gateway_crd_version.yml validation (no auto-derive, no cluster).
+- name: Accept compatible Cilium 1.20 + Gateway API 1.6.1
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_tag: v1.20.0
+    cilium_gateway_crd_versions: v1.6.1
+  tasks:
+    - name: Validate Gateway API CRD version
+      ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_gateway_crd_version.yml
+
+    - name: Assert resolved version matches inventory
+      ansible.builtin.assert:
+        that:
+          - _cilium_gateway_crd_versions_resolved == 'v1.6.1'
+
+- name: Accept compatible Cilium 1.19 + Gateway API 1.5.1
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_tag: v1.19.5
+    cilium_gateway_crd_versions: v1.5.1
+  tasks:
+    - name: Validate Gateway API CRD version
+      ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_gateway_crd_version.yml
+
+    - name: Assert resolved version matches inventory
+      ansible.builtin.assert:
+        that:
+          - _cilium_gateway_crd_versions_resolved == 'v1.5.1'
+
+- name: Fail when Gateway API CRD version is empty
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_tag: v1.20.0
+    cilium_gateway_crd_versions: ""
+  tasks:
+    - name: Expect empty Gateway CRD version to fail
+      block:
+        - name: Validate Gateway API CRD version
+          ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_gateway_crd_version.yml
+
+        - name: Should not reach here
+          ansible.builtin.fail:
+            msg: Expected fail when cilium_gateway_crd_versions is empty
+      rescue:
+        - name: Confirm failure requires explicit version
+          ansible.builtin.assert:
+            that:
+              - "'must be set explicitly' in ansible_failed_result.msg"
+            fail_msg: "Unexpected failure: {{ ansible_failed_result.msg | default(ansible_failed_result) }}"
+
+- name: Fail when Cilium 1.20 is paired with Gateway API 1.5.1
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_tag: v1.20.0
+    cilium_gateway_crd_versions: v1.5.1
+  tasks:
+    - name: Expect incompatible pair to fail
+      block:
+        - name: Validate Gateway API CRD version
+          ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_gateway_crd_version.yml
+
+        - name: Should not reach here
+          ansible.builtin.fail:
+            msg: Expected fail on incompatible Cilium 1.20 + Gateway 1.5.1
+      rescue:
+        - name: Confirm failure message mentions Gateway API
+          ansible.builtin.assert:
+            that:
+              - "'1.6.1' in ansible_failed_result.msg"
+            fail_msg: "Unexpected failure: {{ ansible_failed_result.msg | default(ansible_failed_result) }}"
+
+- name: Fail when Cilium 1.19 is paired with Gateway API 1.6.1
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cilium_tag: v1.19.5
+    cilium_gateway_crd_versions: v1.6.1
+  tasks:
+    - name: Expect incompatible pair to fail
+      block:
+        - name: Validate Gateway API CRD version
+          ansible.builtin.include_tasks: ../../roles/k3s_server_post/tasks/cilium_gateway_crd_version.yml
+
+        - name: Should not reach here
+          ansible.builtin.fail:
+            msg: Expected fail on incompatible Cilium 1.19 + Gateway 1.6.1
+      rescue:
+        - name: Confirm failure message mentions incompatibility
+          ansible.builtin.assert:
+            that:
+              - "'incompatible' in (ansible_failed_result.msg | lower)"
+            fail_msg: "Unexpected failure: {{ ansible_failed_result.msg | default(ansible_failed_result) }}"

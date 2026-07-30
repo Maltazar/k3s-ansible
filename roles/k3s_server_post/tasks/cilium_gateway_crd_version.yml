@@ -1,0 +1,41 @@
+---
+# Validate Gateway API CRD bundle version vs cilium_tag.
+# Both must be set explicitly in inventory/defaults (no auto-derive).
+- name: Normalize Cilium and Gateway API CRD semver for validation
+  ansible.builtin.set_fact:
+    _cilium_sv_for_gateway_crd: "{{ cilium_tag | regex_replace('^v', '') | trim }}"
+    _gateway_crd_sv: "{{ cilium_gateway_crd_versions | regex_replace('^v', '') | trim }}"
+    _cilium_gateway_crd_versions_resolved: "{{ cilium_gateway_crd_versions | trim }}"
+
+- name: Fail when Gateway API CRD version is unset
+  ansible.builtin.fail:
+    msg: >-
+      cilium_gateway_crd_versions must be set explicitly (e.g. v1.5.1 for Cilium 1.19.x,
+      v1.6.1 for Cilium 1.20+). It is not derived from cilium_tag.
+  when: (_cilium_gateway_crd_versions_resolved | default('') | length) == 0
+
+- name: Fail when Cilium 1.20+ is paired with Gateway API CRDs older than 1.6.1
+  ansible.builtin.fail:
+    msg: >-
+      Cilium {{ cilium_tag }} requires Gateway API CRDs >= v1.6.1
+      (got cilium_gateway_crd_versions={{ cilium_gateway_crd_versions }}).
+      See https://docs.cilium.io/en/v1.20/operations/upgrade/#upgrade-notes
+  when:
+    - _cilium_sv_for_gateway_crd is version('1.20.0', '>=')
+    - _gateway_crd_sv is version('1.6.1', '<')
+
+- name: Fail when Cilium 1.19.x is paired with Gateway API CRDs 1.6+
+  ansible.builtin.fail:
+    msg: >-
+      Cilium {{ cilium_tag }} is incompatible with Gateway API CRDs {{ cilium_gateway_crd_versions }}
+      (1.6+). Use Gateway API v1.5.1 for Cilium 1.19.x, or upgrade cilium_tag to v1.20.0+.
+  when:
+    - _cilium_sv_for_gateway_crd is version('1.19.0', '>=')
+    - _cilium_sv_for_gateway_crd is version('1.20.0', '<')
+    - _gateway_crd_sv is version('1.6.0', '>=')
+
+- name: Log Cilium and Gateway API CRD versions
+  ansible.builtin.debug:
+    msg: >-
+      cilium_tag={{ cilium_tag }},
+      cilium_gateway_crd_versions={{ cilium_gateway_crd_versions }}

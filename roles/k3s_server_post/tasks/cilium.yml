@@ -4,6 +4,10 @@
   run_once: true
   block:
 
+    - name: Validate Gateway API CRD version vs cilium_tag
+      when: kube_proxy_replacement
+      ansible.builtin.include_tasks: cilium_gateway_crd_version.yml
+
     # Gateway API v1.5+ ships ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
     # with standard CRDs; it rejects applying experimental-install atop standard. Remove it first,
     # apply experimental then standard so both bundles succeed and the policy is re-applied last.
@@ -25,22 +29,22 @@
     - name: Deploy Gateway API CRDs experimental
       when: kube_proxy_replacement
       ansible.builtin.command: >-
-        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/experimental-install.yaml
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ _cilium_gateway_crd_versions_resolved }}/experimental-install.yaml
 
     - name: Deploy Gateway API CRDs
       when: kube_proxy_replacement
       ansible.builtin.command: >-
-        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ cilium_gateway_crd_versions }}/standard-install.yaml
+        {{ k3s_kubectl_binary | default('k3s kubectl') }} apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ _cilium_gateway_crd_versions_resolved }}/standard-install.yaml
 
     # Cilium 1.19.x hardcodes gatewayv1alpha2.TLSRoute in its operator; Gateway API v1.5+ ships
     # TLSRoute as v1 and sets v1alpha2 served=false. Patch the CRD so both versions are served,
     # preventing the operator crash "no matches for kind TLSRoute in version v1alpha2".
-    # See https://github.com/cilium/cilium/issues/45139
+    # Not used for Cilium 1.20+ / Gateway API 1.6.1+. See https://github.com/cilium/cilium/issues/45139
     - name: Ensure TLSRoute CRD serves v1alpha2 for Cilium 1.19.x compatibility
       when:
         - kube_proxy_replacement
-        - (cilium_gateway_crd_versions | regex_replace('^v', '')) is version('1.5.0', '>=')
-        - (cilium_gateway_crd_versions | regex_replace('^v', '')) is version('1.6.0', '<')
+        - (_cilium_gateway_crd_versions_resolved | regex_replace('^v', '')) is version('1.5.0', '>=')
+        - (_cilium_gateway_crd_versions_resolved | regex_replace('^v', '')) is version('1.6.0', '<')
         - (cilium_tag | regex_replace('^v', '')) is version('1.19.0', '>=')
         - (cilium_tag | regex_replace('^v', '')) is version('1.20.0', '<')
       block:

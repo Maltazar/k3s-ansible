@@ -199,9 +199,11 @@ argument_specs:
 
       cilium_gateway_crd_versions:
         description: >-
-          Gateway API release tag for standard-install.yaml and experimental-install.yaml (e.g. v1.5.1).
-          v1.5+ applies experimental before standard and temporarily removes safe-upgrades VAP so both bundles install.
-        default: v1.5.1
+          Gateway API release tag for standard-install.yaml and experimental-install.yaml
+          (e.g. v1.5.1 for Cilium 1.19.x, v1.6.1 for Cilium 1.20+). Must be set explicitly;
+          the role validates compatibility with cilium_tag. v1.5+ applies experimental before
+          standard and temporarily removes safe-upgrades VAP so both bundles install.
+        default: v1.6.1
 
       cilium_helm_version:
         description: Helm release used to render Cilium preflight manifests on upgrade (linux tarball from get.helm.sh).

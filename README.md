@@ -180,7 +180,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_lb_cidr` | string | `192.168.31.0/24` | Not required | BGP load balancer IP range |
 | `k3s_server_post` | `cilium_exportPodCIDR` | bool | `true` | Not required | Export pod CIDR |
 | `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 - BGPv1 CRDs are removed in 1.19) |
-| `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.4.1` | Not required | Gateway API CRD bundle version applied before Cilium when kube-proxy replacement is enabled |
+| `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.6.1` | Not required | Gateway API CRD bundle tag applied before Cilium when kube-proxy replacement is enabled. Must be set explicitly and compatible with `cilium_tag` (validated). |
 | `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
 | `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble relay and UI |
 | `k3s_server_post` | `cilium_hubble_metrics` | list | `[]` | Not required | Hubble metrics to export (e.g. `[dns, drop, tcp, flow, icmp, http]`). Empty list disables metrics |
@@ -191,7 +191,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_node_selector` | dict | `{}` | Not required | Optional full Kubernetes label selector for `CiliumBGPClusterConfig` `spec.nodeSelector`. Overrides `cilium_bgp_exclude_node_labels` when non-empty. |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
-| `k3s_server_post` | `cilium_tag` | string | `v1.19.5` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`) |
+| `k3s_server_post` | `cilium_tag` | string | `v1.20.0` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`). Pin e.g. `v1.19.5` to stay on the previous minor. |
 | `k3s_server_post` | `cilium_upgrade_compatibility_override` | string | `""` | Not required | Optional `major.minor` for Helm `upgradeCompatibility` on upgrade; when empty, derived from the running Cilium image |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |
@@ -217,9 +217,16 @@ When `cilium_iface` is set, the first master compares the **running** Cilium ima
 - **Version differs, same major.minor as target (patch-only):** runs `cilium upgrade` to the target tag **without** Helm preflight or `upgradeCompatibility` (for example cluster `1.19.1` and inventory `v1.19.2`).
 - **Version differs across major.minor vs target:** runs Cilium [preflight](https://docs.cilium.io/en/v1.19/operations/upgrade/#running-pre-flight-check-required) from the Helm chart matching the **target** `cilium_tag` (including `k8sServiceHost` / `k8sServicePort` when kube-proxy replacement is enabled), removes preflight objects, then `cilium upgrade` with `--helm-set upgradeCompatibility=<running major.minor>` to match the [upgrade guide](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-2-use-helm-to-upgrade-your-cilium-deployment). If the cluster was first installed on an older minor than what is running now, you can set `cilium_upgrade_compatibility_override` (e.g. `1.12`) instead of relying on the derived value.
 
-Only **one minor version step** per upgrade is allowed (for example 1.18.x → 1.19.x). Cilium recommends moving to the [latest patch on your current minor](https://docs.cilium.io/en/v1.19/operations/upgrade/#step-1-upgrade-to-latest-patch-version) before jumping to the next minor; this role does not enforce that automatically.
+Only **one minor version step** per upgrade is allowed (for example 1.19.x → 1.20.x). Cilium recommends moving to the [latest patch on your current minor](https://docs.cilium.io/en/v1.20/operations/upgrade/#step-1-upgrade-to-latest-patch-version) before jumping to the next minor; this role does not enforce that automatically.
 
-For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha1`, if any `CiliumBGPPeeringPolicy` CR exists, or if any `CiliumLoadBalancerIPPool` is still stored as `cilium.io/v2alpha1` - see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older `cilium_tag` (for example `v1.18.6`) to stay on a previous minor.
+**Gateway API CRD compatibility** (when `kube_proxy_replacement` is enabled). Set `cilium_gateway_crd_versions` explicitly in inventory; the role **validates** it against `cilium_tag` and fails on incompatible pairs:
+
+| `cilium_tag` | Compatible `cilium_gateway_crd_versions` | Notes |
+|--------------|------------------------------------------|--------|
+| `1.19.x` | `v1.5.1` (not 1.6+) | TLSRoute `v1alpha2` serve patch applied for Cilium 1.19 operator compatibility |
+| `1.20+` | `v1.6.1` or newer 1.6.x | Required by [Cilium 1.20 upgrade notes](https://docs.cilium.io/en/v1.20/operations/upgrade/#upgrade-notes); includes standard TCPRoute/UDPRoute CRDs |
+
+For **Cilium 1.19+** targets, the role fails if `cilium_bgp_api_version: v2alpha1`, if any `CiliumBGPPeeringPolicy` CR exists, or if any `CiliumLoadBalancerIPPool` is still stored as `cilium.io/v2alpha1` - see [1.19 upgrade notes](https://docs.cilium.io/en/v1.19/operations/upgrade/#upgrade-notes). You can still pin an older stack (for example `cilium_tag: v1.19.5` with `cilium_gateway_crd_versions: v1.5.1`).
 
 **Air-gapped clusters:** Cilium CLI, Helm (on upgrade), and `helm template oci://quay.io/...` need outbound access or local mirrors of those artifacts.
 
