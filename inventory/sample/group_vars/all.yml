@@ -36,9 +36,11 @@ cilium_hubble: true # enable hubble observability relay and ui
 cilium_hubble_policy_verdict: true
 # cilium_bpf_monitor_aggregation: medium
 
-# Keep cilium-envoy off storage-only nodes (re-run --tags cilium after labeling nodes):
+# Optional: keep cilium-envoy off labeled nodes (re-run --tags cilium after labeling).
+# Do NOT exclude nodes that still run the Cilium agent — with external-envoy-proxy the agent
+# needs a local cilium-envoy or new pod sandboxes time out (CNI wedge on that node).
 # cilium_envoy_exclude_node_labels:
-#   storage_only: true
+#   some_label: true
 # Do NOT mirror envoy exclude into BGP unless you also set cilium_bgp_exclude_node_labels explicitly.
 # Excluding storage from BGP breaks pod CIDR/native routing on that node; filter Gateway ECMP at the router instead.
 

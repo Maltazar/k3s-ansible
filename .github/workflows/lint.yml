@@ -41,6 +41,7 @@ jobs:
         run: |
           ansible-playbook tests/template_tests/test_cilium_bgp_v2_node_selector.yml
           ansible-playbook tests/template_tests/test_cilium_gateway_crd_version.yml
+          ansible-playbook tests/template_tests/test_cilium_envoy_affinity_drift.yml
 
       - name: Run pre-commit
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # 3.0.1

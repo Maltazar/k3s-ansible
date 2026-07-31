@@ -1,0 +1,52 @@
+---
+# Drift detection for cilium-envoy DoesNotExist keys must use exact equality.
+# Substring "in" falsely matches when expected keys are empty:
+#   "envoy-doesnotexist-keys=" in "envoy-doesnotexist-keys=storage_only"  → true (wrong)
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cases:
+      - name: empty expected vs stale storage_only live must drift
+        live: "envoy-doesnotexist-keys=storage_only"
+        expected_keys: ""
+        should_drift: true
+      - name: matching empty keys must not drift
+        live: "envoy-doesnotexist-keys="
+        expected_keys: ""
+        should_drift: false
+      - name: matching storage_only must not drift
+        live: "envoy-doesnotexist-keys=storage_only"
+        expected_keys: "storage_only"
+        should_drift: false
+      - name: expected storage_only vs empty live must drift
+        live: "envoy-doesnotexist-keys="
+        expected_keys: "storage_only"
+        should_drift: true
+  tasks:
+    - name: Assert exact-equality drift semantics (not substring 'in')
+      ansible.builtin.assert:
+        that:
+          - >
+            (
+              (item.live | trim)
+              != ('envoy-doesnotexist-keys=' + (item.expected_keys | default('')))
+            ) == item.should_drift
+        fail_msg: >-
+          Drift mismatch for {{ item.name }}:
+          live={{ item.live | trim }}
+          expected=envoy-doesnotexist-keys={{ item.expected_keys }}
+          should_drift={{ item.should_drift }}
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Prove the old substring predicate is wrong for empty expected
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('envoy-doesnotexist-keys=' in 'envoy-doesnotexist-keys=storage_only')
+          - >-
+            ('envoy-doesnotexist-keys=' | trim)
+            != ('envoy-doesnotexist-keys=storage_only' | trim)
+        fail_msg: Substring trap regression check failed
