@@ -191,7 +191,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_node_selector` | dict | `{}` | Not required | Optional full Kubernetes label selector for `CiliumBGPClusterConfig` `spec.nodeSelector`. Overrides `cilium_bgp_exclude_node_labels` when non-empty. |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
-| `k3s_server_post` | `cilium_tag` | string | `v1.20.0` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`). Pin e.g. `v1.19.5` to stay on the previous minor. |
+| `k3s_server_post` | `cilium_tag` | string | `v1.20.1` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`). Pin e.g. `v1.19.5` to stay on the previous minor. |
 | `k3s_server_post` | `cilium_upgrade_compatibility_override` | string | `""` | Not required | Optional `major.minor` for Helm `upgradeCompatibility` on upgrade; when empty, derived from the running Cilium image |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |

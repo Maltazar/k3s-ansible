@@ -1,6 +1,6 @@
 ---
-# Optional later: k3s_version v1.36.1+k3s1 (after Cilium 1.20 is stable in your cluster)
-k3s_version: v1.35.5+k3s1
+# Cilium 1.20 supports Kubernetes 1.33–1.36 (e2e). v1.36.4+k3s1 is one minor above 1.35.x.
+k3s_version: v1.36.4+k3s1
 # this is the user that has ssh access to these machines
 ansible_user: ansibleuser
 systemd_dir: /etc/systemd/system
@@ -20,7 +20,7 @@ calico_tag: v3.31.0 # calico version tag
 # ensure v4.19.57, v5.1.16, v5.2.0 or more recent kernel
 cilium_iface: "{{ ansible_facts.default_ipv4.interface | default( 'eth0' ) }}"
 cilium_mode: native # native when nodes on same subnet or using bgp, else set tunnel
-cilium_tag: v1.20.0 # cilium version tag (pin v1.19.5 + cilium_gateway_crd_versions: v1.5.1 to stay on 1.19)
+cilium_tag: v1.20.1 # cilium version tag (pin v1.19.5 + cilium_gateway_crd_versions: v1.5.1 to stay on 1.19)
 # Must be compatible with cilium_tag (role validates). Cilium 1.19.x -> v1.5.1; Cilium 1.20+ -> v1.6.1+.
 cilium_gateway_crd_versions: v1.6.1
 cilium_hubble: true # enable hubble observability relay and ui

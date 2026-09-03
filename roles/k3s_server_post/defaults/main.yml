@@ -29,7 +29,7 @@ cilium_helm_version: "3.14.4"
 cilium_preflight_rollout_timeout: 600s
 # If set (e.g. "1.12"), passed as Helm upgradeCompatibility on upgrade instead of deriving from the running image.
 cilium_upgrade_compatibility_override: ""
-cilium_tag: v1.20.0
+cilium_tag: v1.20.1
 cilium_hubble: true
 cilium_hubble_metrics: []
 # When cilium_hubble is true, enables bpf.events.policyVerdict (expensive at idle with many policies).
