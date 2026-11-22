@@ -180,7 +180,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_lb_cidr` | string | `192.168.31.0/24` | Not required | BGP load balancer IP range |
 | `k3s_server_post` | `cilium_exportPodCIDR` | bool | `true` | Not required | Export pod CIDR |
 | `k3s_server_post` | `cilium_bgp_api_version` | string | `v2` | Not required | BGP manifest API (`v2` for Cilium 1.18.6+; `v2alpha1` only for Cilium &lt; 1.19 - BGPv1 CRDs are removed in 1.19) |
-| `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.6.1` | Not required | Gateway API CRD bundle tag applied before Cilium when kube-proxy replacement is enabled. Must be set explicitly and compatible with `cilium_tag` (validated). |
+| `k3s_server_post` | `cilium_gateway_crd_versions` | string | `v1.6.3` | Not required | Gateway API CRD bundle tag applied before Cilium when kube-proxy replacement is enabled. Must be set explicitly and compatible with `cilium_tag` (validated). |
 | `k3s_server_post` | `cilium_helm_version` | string | `3.14.4` | Not required | Helm CLI version downloaded on the first master to render Cilium preflight during upgrades |
 | `k3s_server_post` | `cilium_hubble` | bool | `true` | Not required | Enable Cilium Hubble relay and UI |
 | `k3s_server_post` | `cilium_hubble_metrics` | list | `[]` | Not required | Hubble metrics to export (e.g. `[dns, drop, tcp, flow, icmp, http]`). Empty list disables metrics |
@@ -191,7 +191,7 @@ See the commands [here](https://technotim.com/posts/k3s-etcd-ansible/#testing-yo
 | `k3s_server_post` | `cilium_bgp_node_selector` | dict | `{}` | Not required | Optional full Kubernetes label selector for `CiliumBGPClusterConfig` `spec.nodeSelector`. Overrides `cilium_bgp_exclude_node_labels` when non-empty. |
 | `k3s_server_post` | `cilium_mode` | string | `native` | Not required | Inner-node communication mode (choices are `native` and `tunnel`) |
 | `k3s_server_post` | `cilium_preflight_rollout_timeout` | string | `600s` | Not required | Timeout for `kubectl rollout status` on Cilium preflight DaemonSet and Deployment |
-| `k3s_server_post` | `cilium_tag` | string | `v1.20.1` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`). Pin e.g. `v1.19.5` to stay on the previous minor. |
+| `k3s_server_post` | `cilium_tag` | string | `v1.20.5` | Not required | Cilium version passed to the Cilium CLI (`cilium install` / `cilium upgrade`). Pin e.g. `v1.19.11` to stay on the previous minor. |
 | `k3s_server_post` | `cilium_upgrade_compatibility_override` | string | `""` | Not required | Optional `major.minor` for Helm `upgradeCompatibility` on upgrade; when empty, derived from the running Cilium image |
 | `k3s_server_post` | `cluster_cidr` | string | `10.52.0.0/16` | Not required | Inner-cluster IP range |
 | `k3s_server_post` | `enable_bpf_masquerade` | bool | `true` | Not required | Use IP masquerading |
